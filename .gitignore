@@ -1,0 +1,49 @@
+# --- 仓库根（稿定面试 / InterviewScript）---
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# 编辑器 / IDE（个人配置；若团队要共享 .vscode 可改为白名单）
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# 密钥与环境变量（全仓库）
+.env
+.env.*
+!.env.example
+!**/.env.example
+
+# 日志与调试
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# 依赖（若日后在根目录也放 node_modules）
+node_modules/
+
+# 证书与密钥文件
+*.pem
+*.key
+*.p12
+
+# 测试覆盖率
+coverage/
+.nyc_output/
+
+# 可选：本地 Cursor 缓存（若不想把 .cursor 里技能/规则提交，取消下一行注释）
+# .cursor/

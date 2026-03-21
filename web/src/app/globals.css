@@ -1,0 +1,34 @@
+@import "tailwindcss";
+
+/* Notion-ish tokens — 对齐仓库 docs/DESIGN.md */
+:root {
+  --background: #f7f6f3;
+  --surface: #ffffff;
+  --surface-muted: #f1f0ed;
+  --border: #e6e4e0;
+  --border-strong: #d4d2cd;
+  --text: #37352f;
+  --text-muted: #787774;
+  --accent: #2383e2;
+  --accent-muted: rgba(35, 131, 226, 0.12);
+  --radius-sm: 4px;
+  --radius-md: 6px;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--text);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+body {
+  font-family: var(--font-sans);
+}
+
+.surface-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}

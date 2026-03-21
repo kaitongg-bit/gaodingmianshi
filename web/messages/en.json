@@ -1,0 +1,64 @@
+{
+  "LocaleLayout": {
+    "title": "InterviewScript · 稿定面试"
+  },
+  "Landing": {
+    "heroTitle": "Last-minute interview? Still ship a solid script.",
+    "heroSubtitle": "Compliant prep before the interview: parse the JD, refine answers, export. Not live cheating in the room.",
+    "ctaDemo": "Try with sample JD",
+    "ctaApp": "Open workspace",
+    "pricingTitle": "Plans & quota",
+    "pricingBody": "Per-parse JD, quarterly plans, etc. Final pricing at launch.",
+    "ctaMember": "Upgrade",
+    "shareTitle": "Share for extra credits",
+    "shareBody": "Share on social or invite friends to unlock extra JD parses (rules wiring later).",
+    "footerPrivacy": "Privacy",
+    "footerTerms": "Terms"
+  },
+  "Nav": {
+    "home": "Home",
+    "workspace": "Workspace",
+    "projects": "My scripts",
+    "language": "Language"
+  },
+  "Workspace": {
+    "tabSetup": "Setup",
+    "tabRound": "Round {n}",
+    "member": "Upgrade",
+    "share": "Share for credits",
+    "compliance": "Compliance",
+    "resume": "Resume (full text)",
+    "jd": "Job description",
+    "analyze": "Run match & analysis",
+    "analyzing": "Analyzing…",
+    "rounds": "Interview rounds",
+    "extraHint": "Extra instructions (optional)",
+    "generateQuestions": "Generate 20 questions",
+    "thinkingSteps": [
+      "Cross-checking JD keywords with your resume…",
+      "Summarizing core interview themes…",
+      "Marking overlaps and gaps vs the JD…",
+      "Aligning with your question mix settings…"
+    ],
+    "matchTitle": "Resume–JD fit",
+    "matchDisclaimer": "Model-estimated from text only; not the employer’s view. For prep reference.",
+    "analysisTitle": "AI prep notes",
+    "questionsTitle": "Questions",
+    "screenshot": "Parse screenshot",
+    "newQuestion": "New question",
+    "chatTitle": "Chat",
+    "scriptTitle": "Script (global)",
+    "exportMd": "Export Markdown",
+    "placeholderChat": "Pick a question on the left to chat with AI. Set GEMINI_API_KEY in web/.env or web/.env.local.",
+    "placeholderScript": "Answers aggregate here by question.",
+    "selectQuestion": "Select a question on the left",
+    "apiKeyMissing": "GEMINI_API_KEY missing or empty: use one line GEMINI_API_KEY=yourkey in web/.env (no line break after =), save, restart dev. Open /api/ai/health for diagnostics.",
+    "mockBadge": "Demo"
+  },
+  "Projects": {
+    "title": "My interview scripts",
+    "subtitle": "One project per JD. MVP uses a placeholder list.",
+    "newProject": "New project",
+    "open": "Open"
+  }
+}

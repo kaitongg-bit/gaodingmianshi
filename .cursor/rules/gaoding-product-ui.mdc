@@ -1,0 +1,14 @@
+---
+description: 稿定面试（InterviewScript）UI/布局与 PRD、DESIGN 对齐
+globs: "**/*.{tsx,ts,jsx,js,css,mdx}"
+alwaysApply: false
+---
+
+# 稿定面试 — 产品与 UI 上下文
+
+在实现界面、布局、文案、交互或 i18n 时：
+
+1. 以仓库根目录 `PRD.md` 为准：产品范围、第 0 页（简历全文 + 匹配度 + AI 披露）、顶栏轮次 Tab、左栏工具在上/列表在下、三栏点击联动、全局逐字稿、「我的逐字稿」、官网会员与分享入口、合规边界（面试前准备、非考场作弊）、支付区域与 AI 路由（国内 DeepSeek / 海外 Gemini）、Vercel 部署等。
+2. 以 `docs/DESIGN.md` 为准：Notion 风 design tokens、Landing 模块、第 0 页双栏、应用壳顶栏 ASCII、三栏与移动端 Tab/抽屉、新手教程步骤。
+3. 用户可见文案走 i18n key，避免整页中英硬编码分叉；具体集成方式见已安装的 `next-intl-app-router` skill。
+4. 做 UI/UX 走查或可访问性审计时，可配合 Agent Skills：`ui-ux-pro-max`、`web-design-guidelines`。

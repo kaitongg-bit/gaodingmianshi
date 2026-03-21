@@ -1,0 +1,64 @@
+{
+  "LocaleLayout": {
+    "title": "稿定面试 · InterviewScript"
+  },
+  "Landing": {
+    "heroTitle": "临时面试，也能快速备好逐字稿",
+    "heroSubtitle": "合规的面试前准备：解析 JD、打磨回答、导出成稿。非考场实时辅助。",
+    "ctaDemo": "用模拟 JD 体验",
+    "ctaApp": "进入工作台",
+    "pricingTitle": "会员与额度",
+    "pricingBody": "按次解析 JD、季度会员等，具体价格以正式上架为准。",
+    "ctaMember": "购买会员",
+    "shareTitle": "分享得次数",
+    "shareBody": "分享至社交平台或邀请好友，可解锁额外 JD 解析次数（规则稍后接入）。",
+    "footerPrivacy": "隐私",
+    "footerTerms": "条款"
+  },
+  "Nav": {
+    "home": "首页",
+    "workspace": "工作台",
+    "projects": "我的逐字稿",
+    "language": "语言"
+  },
+  "Workspace": {
+    "tabSetup": "第 0 页",
+    "tabRound": "第 {n} 面",
+    "member": "购买会员",
+    "share": "分享得次数",
+    "compliance": "合规说明",
+    "resume": "简历（全文）",
+    "jd": "职位描述",
+    "analyze": "生成匹配度与分析",
+    "analyzing": "分析中…",
+    "rounds": "面试轮数",
+    "extraHint": "附加要求（可选）",
+    "generateQuestions": "生成 20 个高质量问题",
+    "thinkingSteps": [
+      "正在对照 JD 与简历中的技能与关键词…",
+      "正在归纳岗位核心考察维度…",
+      "正在标记经历与 JD 的重合与缺口…",
+      "正在对齐问题比例与后续生成侧重点…"
+    ],
+    "matchTitle": "简历–JD 匹配度",
+    "matchDisclaimer": "以下为模型基于文本的估算，不代表招聘方评价，仅供面试准备参考。",
+    "analysisTitle": "AI 前析",
+    "questionsTitle": "问题列表",
+    "screenshot": "截图解析",
+    "newQuestion": "新建问题",
+    "chatTitle": "对话",
+    "scriptTitle": "逐字稿（全局）",
+    "exportMd": "导出 Markdown",
+    "placeholderChat": "选中左侧题目后与 AI 对话；需在 web/.env 或 web/.env.local 中配置 GEMINI_API_KEY。",
+    "placeholderScript": "成稿将按题目汇总在此。",
+    "selectQuestion": "请从左侧选择一题",
+    "apiKeyMissing": "未读取到有效 GEMINI_API_KEY：请确认 web/.env 里为「同一行」GEMINI_API_KEY=密钥（等号后不能空、不能换行），保存后重启 npm run dev。可打开 /api/ai/health 查看诊断。",
+    "mockBadge": "模拟体验"
+  },
+  "Projects": {
+    "title": "我的逐字稿",
+    "subtitle": "每个 JD 对应一个项目，MVP 使用本地占位列表。",
+    "newProject": "新建项目",
+    "open": "打开"
+  }
+}
