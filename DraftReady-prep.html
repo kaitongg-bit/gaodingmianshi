@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DraftReady - Round 0: Prep</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=Newsreader:ital,wght@0,400;0,500;0,600;0,700;1,400&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#715a4c",
+              "tertiary-fixed-dim": "#f0cfa4",
+              "surface-container-high": "#e8e9e0",
+              "secondary-container": "#ece0db",
+              "surface-container-highest": "#e2e3d9",
+              "on-tertiary-fixed": "#503c1c",
+              "error-container": "#fe8b70",
+              "secondary-dim": "#59514d",
+              "surface-container-lowest": "#ffffff",
+              "on-background": "#31332c",
+              "on-surface": "#31332c",
+              "on-error": "#fff7f6",
+              "tertiary-container": "#ffddb1",
+              "primary-fixed": "#fcdccb",
+              "inverse-on-surface": "#9e9d99",
+              "error-dim": "#5c1202",
+              "surface-dim": "#d9dbcf",
+              "primary-container": "#fcdccb",
+              "secondary": "#665d59",
+              "inverse-primary": "#ffdfce",
+              "tertiary-fixed": "#ffddb1",
+              "outline": "#797c73",
+              "surface-variant": "#e2e3d9",
+              "tertiary-dim": "#664f2d",
+              "secondary-fixed-dim": "#ded2cd",
+              "secondary-fixed": "#ece0db",
+              "on-surface-variant": "#5e6058",
+              "on-primary-fixed-variant": "#6e574a",
+              "background": "#fbf9f4",
+              "error": "#9e422c",
+              "inverse-surface": "#0e0e0c",
+              "surface-container-low": "#f5f4ed",
+              "on-primary-container": "#634d40",
+              "on-tertiary-fixed-variant": "#6f5835",
+              "on-tertiary": "#fff8f2",
+              "on-secondary-fixed-variant": "#625a56",
+              "tertiary": "#735b38",
+              "primary-dim": "#644e41",
+              "on-secondary-container": "#58504c",
+              "on-primary-fixed": "#4f3b2f",
+              "surface-container": "#efeee6",
+              "primary-fixed-dim": "#edcebe",
+              "on-tertiary-container": "#654e2c",
+              "on-primary": "#fff6f2",
+              "on-secondary": "#fff7f5"
+            },
+            fontFamily: {
+              "headline": ["Newsreader"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #fbf9f4;
+            color: #31332c;
+            font-family: 'Inter', sans-serif;
+        }
+        .serif-text { font-family: 'Newsreader', serif; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        textarea:focus { outline: none; border-color: #715a4c; ring: 0; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface">
+<!-- TopNavBar -->
+<header class="bg-[#fbf9f4] sticky top-0 z-50">
+<nav class="flex justify-between items-center px-8 py-4 w-full max-w-screen-2xl mx-auto">
+<div class="flex items-center gap-10">
+<div class="flex items-center gap-3">
+<img alt="DraftReady Logo" class="w-10 h-10 object-contain mix-blend-multiply" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCvZFBOfuCFJWKz_XplLaGz-LiogmAH-x5ng-nJ8obd8O0430iXrXD_5doOp6uBj0h8z8TYTr1HwbgUR2v16UJUOWqUi9uZ8-62LwcIsHQK5RZsuY3YtkgHsK0RQYs1IPpfCaUkumK77UwdUQP61oSww14yUHyqqvFLx-Hck5RD9HELvDkvpi2PsK9OjjLC3bFbrG1S6kTbVE41TkALH1Cs6mFfNrbNqbiVO34MmOMY89j85Z3IPu1Sq9XZsLLv2nzl4XL0Irw86LM"/>
+<span class="font-['Newsreader'] text-2xl font-medium tracking-tight text-[#31332c]">DraftReady</span>
+</div>
+<div class="hidden md:flex gap-8 items-center font-['Newsreader'] text-lg tracking-tight">
+<a class="text-[#31332c] font-semibold border-b-2 border-[#715a4c] pb-2" href="#">0. Prep</a>
+<a class="text-[#5e6058] hover:text-[#31332c] pb-2 transition-colors" href="#">1. Round</a>
+<a class="text-[#5e6058] hover:text-[#31332c] pb-2 transition-colors" href="#">2. Round</a>
+<a class="text-[#5e6058] hover:text-[#31332c] pb-2 transition-colors" href="#">3. Round</a>
+<a class="text-[#5e6058] hover:text-[#31332c] pb-2 transition-colors" href="#">Feedback</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 hover:bg-[#f5f4ed] rounded-full transition-all">
+<span class="material-symbols-outlined text-[#715a4c]">account_circle</span>
+</button>
+</div>
+</nav>
+<div class="bg-[#f5f4ed] h-px w-full"></div>
+</header>
+<main class="max-w-screen-2xl mx-auto px-8 py-10">
+<div class="grid grid-cols-1 md:grid-cols-12 gap-12">
+<!-- Left Pane: Inputs (5/12) -->
+<section class="md:col-span-5 space-y-10">
+<div class="flex justify-between items-end border-b border-outline-variant/30 pb-4">
+<h1 class="serif-text text-4xl font-medium tracking-tight">Stage Assets</h1>
+<span class="text-on-surface-variant font-label text-sm uppercase tracking-widest">Analysis v1.0</span>
+</div>
+<!-- Resume Input Section -->
+<div class="space-y-6">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">description</span>
+<h2 class="serif-text text-2xl">Resume</h2>
+</div>
+<button class="flex items-center gap-2 px-4 py-2 border border-primary text-primary rounded-lg text-sm font-medium hover:bg-primary/5 transition-colors">
+<span class="material-symbols-outlined text-sm">upload</span>
+                            Upload Resume
+                        </button>
+</div>
+<div class="bg-surface-container-low rounded-xl p-6 space-y-3">
+<label class="text-xs uppercase tracking-widest text-on-surface-variant font-medium">Experience Summary (Editable)</label>
+<textarea class="w-full h-40 bg-surface-container-lowest border border-outline-variant/30 rounded-lg p-4 text-sm leading-relaxed text-on-surface-variant resize-none focus:ring-1 focus:ring-primary/20" placeholder="AI-parsed summary will appear here for you to edit...">Senior Product Designer with 6+ years specializing in enterprise SaaS and design systems. Led the redesign of core workflow engines for major fintech clients. Expert in scaling design systems and leading cross-functional teams from discovery to launch.</textarea>
+<div class="flex flex-wrap gap-2 pt-1">
+<span class="px-3 py-1 bg-surface-container text-on-surface-variant rounded-full text-[10px] uppercase font-bold tracking-wider">Figma</span>
+<span class="px-3 py-1 bg-surface-container text-on-surface-variant rounded-full text-[10px] uppercase font-bold tracking-wider">React/CSS</span>
+<span class="px-3 py-1 bg-surface-container text-on-surface-variant rounded-full text-[10px] uppercase font-bold tracking-wider">User Research</span>
+</div>
+</div>
+</div>
+<!-- Job Description Section -->
+<div class="space-y-6">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary">article</span>
+<h2 class="serif-text text-2xl">Job Description</h2>
+</div>
+<div class="bg-surface-container-low rounded-xl p-6">
+<label class="block text-xs uppercase tracking-widest text-on-surface-variant font-medium mb-3">Paste JD Text</label>
+<textarea class="w-full h-64 bg-surface-container-lowest border border-outline-variant/30 rounded-lg p-4 text-sm leading-relaxed text-on-surface-variant resize-none focus:ring-1 focus:ring-primary/20" placeholder="Paste the job description here to analyze alignment...">We are looking for a Senior Product Designer to lead our Design Systems team. 
+
+Core Requirements:
+- Must have experience with complex data visualization.
+- Ability to mentor junior designers and lead sprints.
+- Expertise in cross-platform design systems (Web/Mobile).
+- 5+ years experience in B2B SaaS or Fintech environments.
+- Deep understanding of accessibility (WCAG 2.1).</textarea>
+</div>
+</div>
+</section>
+<!-- Right Pane: AI Analysis (7/12) -->
+<section class="md:col-span-7 space-y-8">
+<!-- Top Section: Strategic Alignment -->
+<div class="relative overflow-hidden bg-primary text-on-primary rounded-xl p-8 shadow-xl flex items-center justify-between">
+<div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDuKI0YvGe-JaiyaxrhyZeFXYYKyaK1hnvVMNFPxq2E1lf3fLAZc5loSFkFugNcfXv5J1RmC1T6b3gLYIeTz3zijE5lneIFavHQv4ddgkavDgQt_gQb2eAOdr3SVmo0Wm6ulxS8xSTdX2hyY2lv6_s6DmSwk7BGCcICNyw4p9QfqGGM00xPteJbF-Wyxn-YkrPbYRROaq7e6wfN3ix-QHVJ3V33w76XaQFqU-DcnVLklNM_gwRPAXSyO5_6kzk-eA_rBBUfVWsfthU');"></div>
+<div class="relative z-10 max-w-sm">
+<h2 class="serif-text text-3xl mb-3">Strategic Alignment</h2>
+<p class="text-primary-fixed/90 leading-relaxed">Based on your edited summary and the provided JD, you match <span class="font-bold text-white">85%</span> of the core requirements for this Lead Designer role.</p>
+</div>
+<div class="relative z-10 flex flex-col items-center ml-4">
+<div class="w-28 h-28 rounded-full border-4 border-primary-fixed/30 flex items-center justify-center">
+<span class="serif-text text-4xl font-bold">85%</span>
+</div>
+<span class="mt-3 text-[10px] font-label uppercase tracking-widest text-primary-fixed/70">Match Score</span>
+</div>
+</div>
+<!-- Middle Section: Question Distribution -->
+<div class="bg-surface-container rounded-xl p-8">
+<h2 class="serif-text text-2xl mb-8">Targeted Question Distribution</h2>
+<div class="space-y-8">
+<div class="space-y-2">
+<div class="flex justify-between text-sm">
+<span class="font-medium text-on-surface">Experience &amp; History</span>
+<span class="text-on-surface-variant">40% (12 Questions)</span>
+</div>
+<div class="h-2 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[40%] rounded-full"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-sm">
+<span class="font-medium text-on-surface">Technical &amp; Craft</span>
+<span class="text-on-surface-variant">30% (9 Questions)</span>
+</div>
+<div class="h-2 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[30%] rounded-full"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-sm">
+<span class="font-medium text-on-surface">Cultural Fit</span>
+<span class="text-on-surface-variant">15% (4 Questions)</span>
+</div>
+<div class="h-2 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[15%] rounded-full"></div>
+</div>
+</div>
+<div class="space-y-2">
+<div class="flex justify-between text-sm">
+<span class="font-medium text-on-surface">Scenario &amp; Stress</span>
+<span class="text-on-surface-variant">15% (4 Questions)</span>
+</div>
+<div class="h-2 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[15%] rounded-full"></div>
+</div>
+</div>
+</div>
+<div class="mt-10 grid grid-cols-2 gap-4">
+<div class="bg-surface-container-lowest p-5 rounded-lg border-l-4 border-primary/20">
+<p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">Focus Area</p>
+<p class="text-sm font-medium">Explain design systems scalability.</p>
+</div>
+<div class="bg-surface-container-lowest p-5 rounded-lg border-l-4 border-primary/20">
+<p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold mb-1">Risk Factor</p>
+<p class="text-sm font-medium">Gap in specific B2B fintech experience.</p>
+</div>
+</div>
+</div>
+<!-- Action Button -->
+<div class="pt-4 flex flex-col items-center gap-4">
+<button class="w-full bg-primary text-on-primary py-5 rounded-xl text-lg font-medium hover:opacity-90 transition-all shadow-lg active:scale-[0.98] flex items-center justify-center gap-3">
+                        Confirm &amp; Generate Interview Rounds
+                        <span class="material-symbols-outlined">auto_awesome</span>
+</button>
+<p class="text-on-surface-variant text-xs font-label">This will generate a customized 3-stage practice schedule based on your assets.</p>
+</div>
+</section>
+</div>
+</main>
+<!-- Footer Space -->
+<div class="h-20"></div>
+</body></html>

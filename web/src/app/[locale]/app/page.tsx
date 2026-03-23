@@ -1,11 +1,10 @@
-import { SiteHeader } from "@/components/SiteHeader";
-import { Workbench } from "@/components/Workbench";
+import { redirect } from "@/i18n/navigation";
 
-export default function AppPage() {
-  return (
-    <div className="flex h-dvh flex-col overflow-hidden">
-      <SiteHeader variant="app" />
-      <Workbench />
-    </div>
-  );
+export default async function AppPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  redirect({ href: "/workspace", locale });
 }

@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DraftReady - My Projects</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=Newsreader:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-secondary": "#fff7f5",
+              "on-secondary-container": "#58504c",
+              "on-secondary-fixed-variant": "#625a56",
+              "on-primary-fixed": "#4f3b2f",
+              "surface-bright": "#fbf9f4",
+              "surface-container-highest": "#e2e3d9",
+              "background": "#fbf9f4",
+              "tertiary-fixed-dim": "#f0cfa4",
+              "surface-dim": "#d9dbcf",
+              "inverse-surface": "#0e0e0c",
+              "surface-tint": "#715a4c",
+              "on-primary": "#fff6f2",
+              "secondary": "#665d59",
+              "inverse-primary": "#ffdfce",
+              "on-error-container": "#742410",
+              "on-primary-fixed-variant": "#6e574a",
+              "secondary-dim": "#59514d",
+              "surface-container-high": "#e8e9e0",
+              "primary-dim": "#644e41",
+              "on-tertiary-fixed": "#503c1c",
+              "outline": "#797c73",
+              "error": "#9e422c",
+              "primary-fixed-dim": "#edcebe",
+              "on-tertiary-container": "#654e2c",
+              "secondary-container": "#ece0db",
+              "surface-container-lowest": "#ffffff",
+              "tertiary-container": "#ffddb1",
+              "on-error": "#fff7f6",
+              "on-surface": "#31332c",
+              "on-primary-container": "#634d40",
+              "primary": "#715a4c",
+              "tertiary-fixed": "#ffddb1",
+              "on-background": "#31332c",
+              "error-dim": "#5c1202",
+              "secondary-fixed-dim": "#ded2cd",
+              "on-tertiary": "#fff8f2",
+              "primary-fixed": "#fcdccb",
+              "tertiary": "#735b38",
+              "surface-container-low": "#f5f4ed",
+              "inverse-on-surface": "#9e9d99",
+              "error-container": "#fe8b70",
+              "tertiary-dim": "#664f2d",
+              "surface-container": "#efeee6",
+              "surface-variant": "#e2e3d9",
+              "on-surface-variant": "#5e6058",
+              "on-tertiary-fixed-variant": "#6f5835",
+              "surface": "#fbf9f4",
+              "primary-container": "#fcdccb",
+              "on-secondary-fixed": "#453e3a",
+              "outline-variant": "#b1b3a9",
+              "secondary-fixed": "#ece0db"
+            },
+            fontFamily: {
+              "headline": ["Newsreader"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .serif-italic { font-family: 'Newsreader'; font-style: italic; }
+        .glass-panel {
+            background: rgba(251, 249, 244, 0.7);
+            backdrop-filter: blur(12px);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopNavBar -->
+<nav class="bg-[#fbf9f4] dark:bg-[#1a1b16] flex justify-between items-center w-full px-6 py-3 max-w-full fixed top-0 z-50 border-b border-outline-variant/10">
+<div class="flex items-center gap-8">
+<span class="text-xl font-semibold text-[#31332c] dark:text-[#e2e3d9] font-['Newsreader']" style=""><div class="flex items-center gap-2"><img alt="DraftReady Logo" class="w-8 h-8 object-contain rounded-lg" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCvZFBOfuCFJWKz_XplLaGz-LiogmAH-x5ng-nJ8obd8O0430iXrXD_5doOp6uBj0h8z8TYTr1HwbgUR2v16UJUOWqUi9uZ8-62LwcIsHQK5RZsuY3YtkgHsK0RQYs1IPpfCaUkumK77UwdUQP61oSww14yUHyqqvFLx-Hck5RD9HELvDkvpi2PsK9OjjLC3bFbrG1S6kTbVE41TkALH1Cs6mFfNrbNqbiVO34MmOMY89j85Z3IPu1Sq9XZsLLv2nzl4XL0Irw86LM" style=""/> <span class="text-xl font-semibold text-[#31332c] dark:text-[#e2e3d9] font-['Newsreader']" style="">DraftReady</span></div></span>
+<div class="hidden md:flex gap-6 items-center">
+<a class="text-[#715a4c] dark:text-[#fcdccb] font-medium border-b border-[#715a4c] font-['Newsreader'] italic text-lg tracking-tight transition-all" href="#" style=""><br/></a>
+<a class="text-[#5e6058] dark:text-[#d9dbcf] hover:text-[#31332c] font-['Newsreader'] italic text-lg tracking-tight transition-colors duration-200" href="#" style=""><br/></a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-[#5e6058] hover:bg-[#f5f4ed] dark:hover:bg-[#2a2b24] rounded-full transition-all" style="">
+<span class="material-symbols-outlined" data-icon="notifications" style="">notifications</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest overflow-hidden border border-outline-variant/20">
+<img class="w-full h-full object-cover" data-alt="User Profile portrait" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA8GY7PjTKi7MvjQG4j1Mf4V42jYIPRblN1kNhDFWqH19_2DLF38ihBuplV2EVZi2F37UFN5MuwQI5jC7Pm9byWCDJ40tDGLbYHxkbpKXfCZtHBSbi19KgqaZ6Y3FaSqFjTsnZwff-1yVCcmXTr79Vbz_9DcK6bxUWblnx9fWX9NIuZBygba-93bzlQ-I-dxJQaF1suMTBs-Y1pyALoL7ZJPMbov6H6LACKeCPmiGC5izLUw75bS4Nn4g4uyYYYHx3RDtWsaD4y2vc" style=""/>
+</div>
+</div>
+</nav>
+<!-- Main Canvas (Full Width) -->
+<main class="pt-24 pb-24 px-6 md:px-12 max-w-7xl mx-auto">
+<!-- Header Section -->
+<header class="mb-12 flex flex-col md:flex-row md:items-end md:justify-between gap-6">
+<div>
+<h1 class="font-headline text-5xl text-on-surface mb-2 tracking-tight" style="">My Projects</h1>
+<p class="text-on-surface-variant font-body max-w-lg" style="">Review your past interview simulations and performance analytics. Keep sharpening your narrative.</p>
+</div>
+</header>
+<!-- Stats Bento Grid -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+<div class="bg-surface-container-low p-6 rounded-xl flex flex-col justify-between min-h-[160px] border border-outline-variant/10">
+<span class="text-xs uppercase tracking-widest text-on-surface-variant font-medium" style="">Total Sessions</span>
+<div>
+<span class="text-4xl font-headline font-semibold" style="">24</span>
+<p class="text-sm text-primary mt-1 flex items-center gap-1" style="">
+<span class="material-symbols-outlined text-sm" data-icon="trending_up" style="">trending_up</span>
+                    +4 this week
+                </p>
+</div>
+</div>
+<div class="bg-primary-container p-6 rounded-xl flex flex-col justify-between min-h-[160px] relative overflow-hidden">
+<div class="relative z-10">
+<span class="text-xs uppercase tracking-widest text-on-primary-container font-medium" style="">Average Score</span>
+<div class="mt-4">
+<span class="text-4xl font-headline font-semibold" style="">82%</span>
+<p class="text-sm text-on-primary-container/70 mt-1" style="">Consistent performance</p>
+</div>
+</div>
+<!-- Abstract visual element -->
+<div class="absolute -right-4 -bottom-4 w-32 h-32 bg-primary/10 rounded-full blur-2xl"></div>
+</div>
+<div class="bg-surface-container-highest p-6 rounded-xl flex items-center justify-center min-h-[160px] group cursor-pointer border border-transparent hover:border-primary/20 transition-all">
+<div class="text-center">
+<div class="w-12 h-12 bg-surface rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-primary" data-icon="add" style="">add</span>
+</div>
+<span class="text-sm font-medium text-on-surface" style="">New Custom Session</span>
+</div>
+</div>
+</div>
+<!-- Project Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+<!-- Project Card 1 -->
+<div class="bg-surface-container-lowest group relative rounded-xl p-1 transition-all hover:shadow-[0_10px_30px_rgba(49,51,44,0.08)] border border-outline-variant/10">
+<div class="bg-surface-container-low rounded-lg p-6 flex flex-col sm:flex-row gap-6">
+<div class="w-16 h-16 rounded-xl bg-white flex items-center justify-center shrink-0 shadow-sm border border-outline-variant/10">
+<span class="material-symbols-outlined text-3xl text-primary" data-icon="corporate_fare" style="">corporate_fare</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h3 class="text-xl font-headline font-bold" style="">Google</h3>
+<span class="text-xs font-label bg-surface-container-highest px-2 py-1 rounded" style="">L5 Software Engineer</span>
+</div>
+<p class="text-sm text-on-surface-variant font-body mb-4" style="">October 24, 2023</p>
+<div class="flex items-center gap-4">
+<div class="flex-1 h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[88%]"></div>
+</div>
+<span class="text-sm font-bold text-primary" style="">88%</span>
+</div>
+</div>
+</div>
+<div class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+<button class="p-1.5 bg-white/80 backdrop-blur rounded-md hover:bg-white text-on-surface-variant transition-colors shadow-sm" style="">
+<span class="material-symbols-outlined text-lg" data-icon="edit" style="">edit</span>
+</button>
+<button class="p-1.5 bg-white/80 backdrop-blur rounded-md hover:bg-error/10 hover:text-error text-on-surface-variant transition-colors shadow-sm" style="">
+<span class="material-symbols-outlined text-lg" data-icon="delete" style="">delete</span>
+</button>
+</div>
+</div>
+<!-- Project Card 2 -->
+<div class="bg-surface-container-lowest group relative rounded-xl p-1 transition-all hover:shadow-[0_10px_30px_rgba(49,51,44,0.08)] border border-outline-variant/10">
+<div class="bg-surface-container-low rounded-lg p-6 flex flex-col sm:flex-row gap-6">
+<div class="w-16 h-16 rounded-xl bg-white flex items-center justify-center shrink-0 shadow-sm border border-outline-variant/10">
+<span class="material-symbols-outlined text-3xl text-primary" data-icon="token" style="">token</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h3 class="text-xl font-headline font-bold" style="">Stripe</h3>
+<span class="text-xs font-label bg-surface-container-highest px-2 py-1 rounded" style="">Backend Architect</span>
+</div>
+<p class="text-sm text-on-surface-variant font-body mb-4" style="">October 18, 2023</p>
+<div class="flex items-center gap-4">
+<div class="flex-1 h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[74%]"></div>
+</div>
+<span class="text-sm font-bold text-primary" style="">74%</span>
+</div>
+</div>
+</div>
+<div class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+<button class="p-1.5 bg-white/80 backdrop-blur rounded-md hover:bg-white text-on-surface-variant transition-colors shadow-sm" style="">
+<span class="material-symbols-outlined text-lg" data-icon="edit" style="">edit</span>
+</button>
+</div>
+</div>
+<!-- Project Card 3 -->
+<div class="bg-surface-container-lowest group relative rounded-xl p-1 transition-all hover:shadow-[0_10px_30px_rgba(49,51,44,0.08)] border border-outline-variant/10">
+<div class="bg-surface-container-low rounded-lg p-6 flex flex-col sm:flex-row gap-6">
+<div class="w-16 h-16 rounded-xl bg-white flex items-center justify-center shrink-0 shadow-sm border border-outline-variant/10">
+<span class="material-symbols-outlined text-3xl text-primary" data-icon="grid_view" style="">grid_view</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h3 class="text-xl font-headline font-bold" style="">Airbnb</h3>
+<span class="text-xs font-label bg-surface-container-highest px-2 py-1 rounded" style="">Product Designer</span>
+</div>
+<p class="text-sm text-on-surface-variant font-body mb-4" style="">October 12, 2023</p>
+<div class="flex items-center gap-4">
+<div class="flex-1 h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[92%]"></div>
+</div>
+<span class="text-sm font-bold text-primary" style="">92%</span>
+</div>
+</div>
+</div>
+<div class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+<button class="p-1.5 bg-white/80 backdrop-blur rounded-md hover:bg-white text-on-surface-variant transition-colors shadow-sm" style="">
+<span class="material-symbols-outlined text-lg" data-icon="edit" style="">edit</span>
+</button>
+</div>
+</div>
+<!-- Project Card 4 -->
+<div class="bg-surface-container-lowest group relative rounded-xl p-1 transition-all hover:shadow-[0_10px_30px_rgba(49,51,44,0.08)] border border-outline-variant/10">
+<div class="bg-surface-container-low rounded-lg p-6 flex flex-col sm:flex-row gap-6">
+<div class="w-16 h-16 rounded-xl bg-white flex items-center justify-center shrink-0 shadow-sm border border-outline-variant/10">
+<span class="material-symbols-outlined text-3xl text-primary" data-icon="terminal" style="">terminal</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h3 class="text-xl font-headline font-bold" style="">Netflix</h3>
+<span class="text-xs font-label bg-surface-container-highest px-2 py-1 rounded" style="">SRE II</span>
+</div>
+<p class="text-sm text-on-surface-variant font-body mb-4" style="">September 29, 2023</p>
+<div class="flex items-center gap-4">
+<div class="flex-1 h-1.5 bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary w-[81%]"></div>
+</div>
+<span class="text-sm font-bold text-primary" style="">81%</span>
+</div>
+</div>
+</div>
+<div class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+<button class="p-1.5 bg-white/80 backdrop-blur rounded-md hover:bg-white text-on-surface-variant transition-colors shadow-sm" style="">
+<span class="material-symbols-outlined text-lg" data-icon="edit" style="">edit</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Pagination/Load More -->
+<div class="mt-16 flex justify-center">
+<button class="px-8 py-3 rounded-xl border border-outline-variant/30 text-primary font-medium hover:bg-surface-container-low transition-all flex items-center gap-2" style="">
+            Load Archive
+            <span class="material-symbols-outlined text-sm" data-icon="expand_more" style="">expand_more</span>
+</button>
+</div>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center px-4 py-3 md:hidden bg-[#fbf9f4]/80 dark:bg-[#1a1b16]/80 backdrop-blur-xl z-50 border-t border-[#31332c]/5 shadow-[0_-10px_30px_rgba(49,51,44,0.03)]">
+<a class="flex flex-col items-center justify-center text-[#715a4c] font-bold scale-95 transition-transform" href="#" style="">
+<span class="material-symbols-outlined" data-icon="assignment" style="">assignment</span>
+<span class="font-['Inter'] text-[10px] uppercase tracking-widest mt-1" style="">Projects</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#5e6058] dark:text-[#d9dbcf] opacity-70 scale-95 active:scale-90 transition-transform" href="#" style="">
+<span class="material-symbols-outlined" data-icon="add_circle" style="">add_circle</span>
+<span class="font-['Inter'] font-medium text-[10px] uppercase tracking-widest mt-1" style="">New</span>
+</a>
+<a class="flex flex-col items-center justify-center text-[#5e6058] dark:text-[#d9dbcf] opacity-70 scale-95 active:scale-90 transition-transform" href="#" style="">
+<span class="material-symbols-outlined" data-icon="settings" style="">settings</span>
+<span class="font-['Inter'] font-medium text-[10px] uppercase tracking-widest mt-1" style="">Settings</span>
+</a>
+</nav>
+</body></html>

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { GeminiConfigError, getGeminiJsonModel } from "@/lib/gemini";
+import { consumeCreditsForAi } from "@/lib/server/ai-guard";
+import { buildQuestionRoundPlan, buildQuestionStyleBlock } from "./prompt-builders";
 
 export async function POST(req: Request) {
   try {
@@ -28,6 +30,14 @@ export async function POST(req: Request) {
       );
     }
 
+    const credit = await consumeCreditsForAi("ai_questions", 1);
+    if (!credit.ok) {
+      return NextResponse.json(
+        { error: credit.message },
+        { status: credit.status },
+      );
+    }
+
     const model = getGeminiJsonModel();
 
     const lang =
@@ -35,10 +45,9 @@ export async function POST(req: Request) {
         ? "Write each question title in natural English."
         : "每个问题的 title 用自然中文书写。";
 
-    const prompt = `You create interview *preparation* questions (practice only, not for cheating in live interviews).
-Generate exactly 20 questions, distributed across rounds 1..${rounds} (roughly even split).
-Return ONLY JSON: { "questions": [ { "round": number, "title": string } ] }
-Each title should be specific to this resume and JD.
+    const prompt = `${buildQuestionRoundPlan(rounds)}
+
+${buildQuestionStyleBlock(rounds)}
 
 ${lang}
 

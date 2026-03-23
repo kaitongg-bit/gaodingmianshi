@@ -2,18 +2,20 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations, setRequestLocale } from "next-intl/server";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Newsreader } from "next/font/google";
 import "../globals.css";
 import { routing } from "@/i18n/routing";
+import { PageTransitionShell } from "@/components/PageTransitionShell";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const newsreader = Newsreader({
+  variable: "--font-newsreader",
   subsets: ["latin"],
+  style: ["normal", "italic"],
 });
 
 export function generateStaticParams() {
@@ -32,7 +34,11 @@ export async function generateMetadata({
   });
   return {
     title: t("title"),
-    description: "InterviewScript — compliant interview prep",
+    description: t("description"),
+    icons: {
+      icon: [{ url: "/logo-mark.png", type: "image/png" }],
+      apple: [{ url: "/logo-mark.png", type: "image/png" }],
+    },
   };
 }
 
@@ -54,12 +60,24 @@ export default async function LocaleLayout({
   return (
     <html
       lang={locale}
-      className={`${geistSans.variable} ${geistMono.variable} h-full`}
+      className={`${inter.variable} ${newsreader.variable} h-full`}
       suppressHydrationWarning
     >
-      <body className="min-h-full bg-[var(--background)] text-[var(--text)] antialiased">
+      <head>
+        <link
+          rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap"
+        />
+      </head>
+      <body className="min-h-full antialiased selection:bg-[var(--primary-container)] selection:text-[var(--on-primary-container)]">
         <NextIntlClientProvider messages={messages}>
-          {children}
+          <a
+            href="#main"
+            className="sr-only focus:not-sr-only focus:absolute focus:z-[100] focus:m-2 focus:rounded-lg focus:bg-[var(--primary)] focus:px-3 focus:py-2 focus:text-[var(--on-primary)]"
+          >
+            {locale === "zh" ? "跳到正文" : "Skip to content"}
+          </a>
+          <PageTransitionShell>{children}</PageTransitionShell>
         </NextIntlClientProvider>
       </body>
     </html>

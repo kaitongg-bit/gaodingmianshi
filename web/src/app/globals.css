@@ -1,34 +1,93 @@
 @import "tailwindcss";
 
-/* Notion-ish tokens — 对齐仓库 docs/DESIGN.md */
+/* Tactile Editorial — 对齐 DESIGN.md + DraftReady HTML */
 :root {
-  --background: #f7f6f3;
-  --surface: #ffffff;
-  --surface-muted: #f1f0ed;
-  --border: #e6e4e0;
-  --border-strong: #d4d2cd;
-  --text: #37352f;
-  --text-muted: #787774;
-  --accent: #2383e2;
-  --accent-muted: rgba(35, 131, 226, 0.12);
-  --radius-sm: 4px;
-  --radius-md: 6px;
+  --background: #fbf9f4;
+  --surface: #fbf9f4;
+  --surface-container-low: #f5f4ed;
+  --surface-container: #efeee6;
+  --surface-container-high: #e8e9e0;
+  --surface-container-highest: #e2e3d9;
+  --surface-container-lowest: #ffffff;
+  --surface-dim: #d9dbcf;
+  --primary: #715a4c;
+  --primary-dim: #644e41;
+  --primary-container: #fcdccb;
+  --on-primary: #fff6f2;
+  --on-primary-container: #634d40;
+  --on-surface: #31332c;
+  --on-surface-variant: #5e6058;
+  --outline-variant: #b1b3a9;
+  --error: #9e422c;
+  --shadow-ambient: 0 10px 30px rgba(49, 51, 44, 0.05);
+  --shadow-card: 0 10px 30px rgba(49, 51, 44, 0.08);
 }
 
 @theme inline {
   --color-background: var(--background);
-  --color-foreground: var(--text);
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, "PingFang SC",
-    "Microsoft YaHei", sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --color-surface: var(--surface);
+  --color-surface-low: var(--surface-container-low);
+  --color-surface-mid: var(--surface-container);
+  --color-surface-high: var(--surface-container-high);
+  --color-surface-highest: var(--surface-container-highest);
+  --color-surface-white: var(--surface-container-lowest);
+  --color-primary: var(--primary);
+  --color-primary-dim: var(--primary-dim);
+  --color-primary-container: var(--primary-container);
+  --color-on-primary: var(--on-primary);
+  --color-on-surface: var(--on-surface);
+  --color-on-surface-variant: var(--on-surface-variant);
+  --color-outline-variant: var(--outline-variant);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-newsreader), "Newsreader", Georgia, serif;
 }
 
 body {
   font-family: var(--font-sans);
+  background: var(--background);
+  color: var(--on-surface);
 }
 
-.surface-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+.font-headline {
+  font-family: var(--font-serif);
+}
+
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  vertical-align: middle;
+  font-size: 1.25rem;
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.page-transition-enter {
+  animation: page-enter 0.28s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-transition-enter {
+    animation: none;
+  }
+}
+
+.glass-nav {
+  background: rgba(251, 249, 244, 0.85);
+  backdrop-filter: blur(12px);
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: var(--outline-variant);
+  border-radius: 10px;
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { GeminiConfigError, getGeminiJsonModel } from "@/lib/gemini";
+import { consumeCreditsForAi } from "@/lib/server/ai-guard";
 
 const SCHEMA_HINT = `Return ONLY valid JSON with this shape:
 {
@@ -28,6 +29,14 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: "resume_and_jd_required" },
         { status: 400 },
+      );
+    }
+
+    const credit = await consumeCreditsForAi("ai_analyze", 1);
+    if (!credit.ok) {
+      return NextResponse.json(
+        { error: credit.message },
+        { status: credit.status },
       );
     }
 

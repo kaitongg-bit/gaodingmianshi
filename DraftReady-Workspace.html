@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DraftReady - Round 1</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=Newsreader:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary-dim": "#644e41",
+              "on-surface": "#31332c",
+              "tertiary-fixed": "#ffddb1",
+              "surface-container-high": "#e8e9e0",
+              "on-primary": "#fff6f2",
+              "error-dim": "#5c1202",
+              "tertiary-container": "#ffddb1",
+              "secondary-fixed-dim": "#ded2cd",
+              "on-error": "#fff7f6",
+              "inverse-surface": "#0e0e0c",
+              "on-secondary-fixed": "#453e3a",
+              "surface-container": "#efeee6",
+              "error-container": "#fe8b70",
+              "inverse-primary": "#ffdfce",
+              "on-tertiary-container": "#654e2c",
+              "on-tertiary-fixed": "#503c1c",
+              "outline": "#797c73",
+              "tertiary-fixed-dim": "#f0cfa4",
+              "on-background": "#31332c",
+              "outline-variant": "#b1b3a9",
+              "on-secondary-container": "#58504c",
+              "surface-container-highest": "#e2e3d9",
+              "on-tertiary-fixed-variant": "#6f5835",
+              "on-primary-fixed-variant": "#6e574a",
+              "secondary-fixed": "#ece0db",
+              "secondary-container": "#ece0db",
+              "inverse-on-surface": "#9e9d99",
+              "secondary-dim": "#59514d",
+              "on-primary-container": "#634d40",
+              "on-primary-fixed": "#4f3b2f",
+              "primary-fixed": "#fcdccb",
+              "surface-bright": "#fbf9f4",
+              "primary-fixed-dim": "#edcebe",
+              "on-tertiary": "#fff8f2",
+              "tertiary": "#735b38",
+              "error": "#9e422c",
+              "on-secondary": "#fff7f5",
+              "on-surface-variant": "#5e6058",
+              "surface-tint": "#715a4c",
+              "on-secondary-fixed-variant": "#625a56",
+              "secondary": "#665d59",
+              "tertiary-dim": "#664f2d",
+              "primary": "#715a4c",
+              "primary-container": "#fcdccb",
+              "background": "#fbf9f4",
+              "surface-container-low": "#f5f4ed",
+              "surface-dim": "#d9dbcf",
+              "surface-variant": "#e2e3d9",
+              "surface-container-lowest": "#ffffff",
+              "on-error-container": "#742410",
+              "surface": "#fbf9f4"
+            },
+            fontFamily: {
+              "headline": ["Newsreader", "serif"],
+              "body": ["Inter", "sans-serif"],
+              "label": ["Inter", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-serif { font-family: 'Newsreader', serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #b1b3a9;
+            border-radius: 10px;
+        }
+        .fade-bottom {
+            mask-image: linear-gradient(to bottom, black 85%, transparent 100%);
+        }
+        [contenteditable]:focus {
+            outline: none;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopNavBar -->
+<nav class="bg-[#fbf9f4] dark:bg-[#1a1b16] flex justify-between items-center w-full px-8 py-4 max-w-full mx-auto sticky top-0 z-50">
+<div class="flex items-center gap-12">
+<span class="text-2xl font-semibold italic text-[#31332c] dark:text-[#fbf9f4] font-serif flex items-center gap-2"><img alt="DraftReady Logo" class="h-8 w-8 object-contain mix-blend-multiply dark:mix-blend-normal rounded" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCvZFBOfuCFJWKz_XplLaGz-LiogmAH-x5ng-nJ8obd8O0430iXrXD_5doOp6uBj0h8z8TYTr1HwbgUR2v16UJUOWqUi9uZ8-62LwcIsHQK5RZsuY3YtkgHsK0RQYs1IPpfCaUkumK77UwdUQP61oSww14yUHyqqvFLx-Hck5RD9HELvDkvpi2PsK9OjjLC3bFbrG1S6kTbVE41TkALH1Cs6mFfNrbNqbiVO34MmOMY89j85Z3IPu1Sq9XZsLLv2nzl4XL0Irw86LM"/>DraftReady</span>
+<div class="hidden md:flex items-center gap-8">
+<a class="text-[#5e6058] dark:text-[#a9aba0] hover:text-[#31332c] dark:hover:text-[#fbf9f4] pb-2 transition-colors duration-200" href="#">0. Prep</a>
+<a class="text-[#31332c] dark:text-[#fbf9f4] border-b-2 border-[#715a4c] dark:border-[#fcdccb] pb-2 font-medium transition-colors duration-200" href="#">1. Round</a>
+<a class="text-[#5e6058] dark:text-[#a9aba0] hover:text-[#31332c] dark:hover:text-[#fbf9f4] pb-2 transition-colors duration-200" href="#">2. Round</a>
+<a class="text-[#5e6058] dark:text-[#a9aba0] hover:text-[#31332c] dark:hover:text-[#fbf9f4] pb-2 transition-colors duration-200" href="#">3. Round</a>
+<a class="text-[#5e6058] dark:text-[#a9aba0] hover:text-[#31332c] dark:hover:text-[#fbf9f4] pb-2 transition-colors duration-200" href="#">HR</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 rounded-full hover:bg-[#f5f4ed] dark:hover:bg-[#23241e] transition-colors duration-200 active:scale-95">
+<span class="material-symbols-outlined text-[#715a4c] dark:text-[#fcdccb]">help</span>
+</button>
+<button class="p-2 rounded-full hover:bg-[#f5f4ed] dark:hover:bg-[#23241e] transition-colors duration-200 active:scale-95">
+<span class="material-symbols-outlined text-[#715a4c] dark:text-[#fcdccb]">settings</span>
+</button>
+</div>
+</nav>
+<div class="bg-[#f5f4ed] dark:bg-[#23241e] h-px w-full"></div>
+<main class="max-w-[1600px] mx-auto h-[calc(100vh-73px)] grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
+<!-- Left Pane: Question List -->
+<section class="lg:col-span-3 bg-surface-container-low p-6 flex flex-col gap-6 h-full overflow-hidden">
+<div class="flex-shrink-0">
+<h2 class="font-headline text-2xl text-on-surface mb-6">Question List</h2>
+<div class="flex flex-col gap-3">
+<label class="font-label text-xs uppercase tracking-wider text-on-surface-variant font-semibold">Draft Question</label>
+<div class="relative group">
+<textarea class="w-full h-32 p-4 bg-surface-container-lowest rounded-lg resize-none border-none focus:ring-1 focus:ring-primary text-sm placeholder:text-outline-variant" placeholder="Type or paste a custom question..."></textarea>
+<div class="absolute inset-0 pointer-events-none border-2 border-dashed border-outline-variant/30 rounded-lg group-focus-within:hidden"></div>
+<div class="absolute bottom-3 right-3 flex gap-2">
+<button class="p-1.5 rounded bg-surface-container-low text-on-surface-variant hover:text-primary pointer-events-auto transition-colors" title="Upload Image or Document">
+<span class="material-symbols-outlined text-sm">upload_file</span>
+</button>
+<button class="p-1.5 rounded bg-surface-container-low text-on-surface-variant hover:text-primary pointer-events-auto transition-colors" title="Paste Link">
+<span class="material-symbols-outlined text-sm">link</span>
+</button>
+</div>
+</div>
+<button class="w-full py-2.5 bg-primary text-on-primary rounded-lg text-sm font-medium transition-all hover:bg-primary-dim active:scale-[0.98] shadow-sm">
+                        Add to List
+                    </button>
+</div>
+</div>
+<div class="flex-1 overflow-hidden flex flex-col min-h-0">
+<h3 class="font-label text-xs uppercase tracking-wider text-on-surface-variant mb-4 font-semibold">Generated Questions</h3>
+<div class="flex-1 overflow-y-auto pr-2 custom-scrollbar relative fade-bottom">
+<div class="flex flex-col gap-3 pb-20">
+<!-- Active Question -->
+<div class="group bg-surface-container-lowest p-4 rounded-lg shadow-sm border-l-4 border-primary transition-all cursor-pointer">
+<p class="text-sm font-medium text-on-surface mb-2">Tell me about a time you had to lead a difficult cross-functional project.</p>
+<div class="flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="text-[10px] font-bold text-primary uppercase tracking-tighter">Active</span>
+<span class="material-symbols-outlined text-on-surface-variant text-sm">drag_indicator</span>
+</div>
+</div>
+<!-- Other Questions -->
+<div class="group bg-surface-container p-4 rounded-lg hover:bg-surface-container-high transition-all cursor-pointer">
+<p class="text-sm text-on-surface-variant group-hover:text-on-surface transition-colors">How do you handle conflicting priorities from multiple stakeholders?</p>
+<div class="flex justify-end mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">edit</span>
+</div>
+</div>
+<div class="group bg-surface-container p-4 rounded-lg hover:bg-surface-container-high transition-all cursor-pointer">
+<p class="text-sm text-on-surface-variant group-hover:text-on-surface transition-colors">What is your approach to mentorship within a senior engineering team?</p>
+<div class="flex justify-end mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">delete</span>
+</div>
+</div>
+<div class="group bg-surface-container p-4 rounded-lg hover:bg-surface-container-high transition-all cursor-pointer">
+<p class="text-sm text-on-surface-variant group-hover:text-on-surface transition-colors">Describe a complex technical challenge you solved recently.</p>
+<div class="flex justify-end mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">edit</span>
+</div>
+</div>
+<div class="group bg-surface-container p-4 rounded-lg hover:bg-surface-container-high transition-all cursor-pointer">
+<p class="text-sm text-on-surface-variant group-hover:text-on-surface transition-colors">How do you stay up to date with the latest industry trends?</p>
+<div class="flex justify-end mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-on-surface-variant text-sm">edit</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Middle Pane: Iterate your response -->
+<section class="lg:col-span-5 bg-surface p-8 flex flex-col h-full border-x border-surface-container overflow-hidden">
+<header class="mb-8 flex-shrink-0">
+<h2 class="font-headline text-2xl text-on-surface">Iterate your response</h2>
+<p class="text-sm text-on-surface-variant font-body mt-1">Refining: <span class="italic text-primary">Cross-functional Leadership</span></p>
+</header>
+<div class="flex-1 overflow-y-auto flex flex-col gap-8 mb-6 pr-4 custom-scrollbar">
+<!-- AI Suggestion -->
+<div class="flex gap-4 max-w-[95%]">
+<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-on-secondary-container text-sm">auto_awesome</span>
+</div>
+<div class="flex-1 relative group">
+<div class="bg-surface-container-low p-5 rounded-xl rounded-tl-none shadow-sm">
+<p class="text-sm leading-relaxed">That's a strong start. To make this answer more impactful, try applying the **STAR method**. Can you specify the exact conflict between the design and engineering teams in that project?</p>
+</div>
+<button class="absolute -right-4 top-2 translate-x-full opacity-0 group-hover:opacity-100 transition-opacity bg-primary text-on-primary px-3 py-1.5 rounded-full text-xs font-medium shadow-lg flex items-center gap-1.5 whitespace-nowrap active:scale-95">
+<span class="material-symbols-outlined text-xs">add_to_photos</span>
+                            Add to Transcript
+                        </button>
+</div>
+</div>
+<!-- User Input -->
+<div class="flex gap-4 max-w-[90%] self-end flex-row-reverse">
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-on-primary-container text-sm">person</span>
+</div>
+<div class="bg-primary-container p-5 rounded-xl rounded-tr-none text-on-primary-container shadow-sm">
+<p class="text-sm leading-relaxed">The main conflict was about the release timeline. Engineering wanted to ship a MVP with limited UI, but Design felt it compromised the brand identity for our first launch.</p>
+</div>
+</div>
+<!-- AI Analysis -->
+<div class="flex gap-4 max-w-[95%]">
+<div class="w-8 h-8 rounded-full bg-secondary-container flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-on-secondary-container text-sm">auto_awesome</span>
+</div>
+<div class="flex-1 relative group">
+<div class="bg-surface-container-low p-5 rounded-xl rounded-tl-none shadow-sm">
+<p class="text-sm leading-relaxed mb-4">Great. Here's a suggested structure for your "Action" section:</p>
+<ul class="space-y-2 text-sm text-on-surface-variant">
+<li class="flex items-start gap-2"><span class="material-symbols-outlined text-primary text-sm mt-0.5">check_circle</span> <span>Emphasize the collaborative workshop you held.</span></li>
+<li class="flex items-start gap-2"><span class="material-symbols-outlined text-primary text-sm mt-0.5">check_circle</span> <span>Mention the "MoSCoW" prioritization framework used.</span></li>
+</ul>
+</div>
+<button class="absolute -right-4 top-2 translate-x-full opacity-0 group-hover:opacity-100 transition-opacity bg-primary text-on-primary px-3 py-1.5 rounded-full text-xs font-medium shadow-lg flex items-center gap-1.5 whitespace-nowrap active:scale-95">
+<span class="material-symbols-outlined text-xs">add_to_photos</span>
+                            Confirm Answer
+                        </button>
+</div>
+</div>
+</div>
+<div class="flex-shrink-0 flex gap-3 items-end">
+<div class="relative flex-1">
+<div class="absolute left-4 top-1/2 -translate-y-1/2 group">
+<button class="flex items-center gap-1.5 text-on-surface-variant hover:text-primary transition-colors text-xs font-medium">
+<span class="material-symbols-outlined text-lg">tune</span>
+<span class="hidden md:inline">Confident</span>
+</button>
+</div>
+<input class="w-full pl-28 pr-12 py-4 bg-surface-container-lowest rounded-2xl border-none shadow-md focus:ring-1 focus:ring-primary text-sm" placeholder="Ask AI to refine your response..." type="text"/>
+<button class="absolute right-2 top-2 w-10 h-10 bg-primary text-on-primary rounded-xl flex items-center justify-center hover:bg-primary-dim transition-colors active:scale-95">
+<span class="material-symbols-outlined">arrow_upward</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Right Pane: Final Transcript -->
+<section class="lg:col-span-4 bg-surface-container-low p-8 flex flex-col h-full overflow-hidden">
+<div class="flex justify-between items-center mb-8 flex-shrink-0">
+<h2 class="font-headline text-2xl text-on-surface">Final Transcript</h2>
+<div class="relative group">
+<button class="flex items-center gap-2 bg-surface-container-lowest px-4 py-2 rounded-lg border border-surface-container-high text-on-surface hover:bg-surface-container-high transition-colors font-medium text-xs shadow-sm">
+<span class="material-symbols-outlined text-sm">download</span>
+                        Export
+                        <span class="material-symbols-outlined text-sm">expand_more</span>
+</button>
+<div class="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-xl border border-surface-container overflow-hidden hidden group-hover:block z-20">
+<a class="block px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container-low transition-colors" href="#">PDF Document</a>
+<a class="block px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container-low transition-colors" href="#">Word (DOCX)</a>
+<a class="block px-4 py-2 text-xs text-on-surface-variant hover:bg-surface-container-low transition-colors" href="#">Markdown (.md)</a>
+</div>
+</div>
+</div>
+<article class="flex-1 bg-surface-container-lowest rounded-xl shadow-[0_10px_30px_rgba(49,51,44,0.03)] border border-surface-container overflow-y-auto custom-scrollbar flex flex-col">
+<div class="p-8 min-h-full prose prose-slate max-w-none focus:outline-none" contenteditable="true">
+<h1 class="font-serif text-3xl font-semibold mb-6 text-on-surface border-b border-surface-container-high pb-4">Behavioral Responses: Round 1</h1>
+<div class="mb-10">
+<h3 class="text-[10px] font-label uppercase tracking-widest text-primary font-bold mb-3">01. Cross-functional Leadership</h3>
+<p class="text-sm leading-relaxed text-on-surface mb-4">
+                            At my previous role, I led the launch of the "Global Sync" feature. During the development phase, a critical friction point arose between the engineering and design departments regarding the scope of the user interface versus the sprint deadline.
+                        </p>
+<p class="text-sm leading-relaxed text-on-surface">
+                            I addressed this by organizing a mediation workshop where we mapped our goals using the <span class="italic font-medium bg-tertiary-container px-1 rounded">MoSCoW framework</span>. This allowed us to align on a phased release strategy that protected both the user experience and our hard deadline.
+                        </p>
+<div class="mt-6 p-4 bg-surface-container-low rounded-lg italic text-on-surface-variant text-xs flex items-start gap-3 border-l-2 border-primary/20">
+<span class="material-symbols-outlined text-primary text-sm">info</span>
+<span>Focus on: Diplomacy, technical empathy, and outcome-oriented decision making.</span>
+</div>
+</div>
+<div class="mb-10">
+<h3 class="text-[10px] font-label uppercase tracking-widest text-on-surface-variant font-bold mb-3">02. Handling Conflict</h3>
+<p class="text-sm leading-relaxed text-on-surface italic opacity-50">Click here to start typing your response for handling conflict...</p>
+</div>
+<div class="mt-auto pt-6 border-t border-surface-container-high">
+<p class="text-[10px] text-on-surface-variant font-label italic">Auto-saved at 2:45 PM • DraftReady v2.4</p>
+</div>
+</div>
+</article>
+</section>
+</main>
+</body></html>
