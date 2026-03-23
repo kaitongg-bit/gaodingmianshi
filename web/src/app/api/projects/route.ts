@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { clampRoundsCount } from "@/lib/project-rounds";
 import { deriveCompanyRoleFromMaterials, formatProjectDate } from "@/lib/server/project-card";
 import { getAuthedSupabase } from "@/lib/server/require-auth";
 import type { AnalysisPayload } from "@/lib/client-session";
@@ -92,7 +93,7 @@ export async function POST(req: Request) {
 
   const resume_text = (body.resume_text ?? "").trim();
   const jd_text = (body.jd_text ?? "").trim();
-  const rounds_count = Math.min(5, Math.max(1, Number(body.rounds_count) || 3));
+  const rounds_count = clampRoundsCount(Number(body.rounds_count) || 3);
 
   const { data, error } = await supabase
     .from("projects")

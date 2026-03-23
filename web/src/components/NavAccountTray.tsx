@@ -224,16 +224,8 @@ export function NavAccountTray({
               <LocaleSwitcher />
             </div>
             <Link
-              href="/settings"
-              role="menuitem"
-              onClick={() => setMenuOpen(false)}
-              className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm text-[var(--on-surface)] hover:bg-[var(--surface-container-low)]"
-            >
-              <MaterialIcon name="settings" className="!text-xl text-[var(--on-surface-variant)]" />
-              {t("accountSettings")}
-            </Link>
-            <Link
               href="/support"
+              locale={locale}
               role="menuitem"
               onClick={() => setMenuOpen(false)}
               className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm text-[var(--on-surface)] hover:bg-[var(--surface-container-low)]"
@@ -243,6 +235,7 @@ export function NavAccountTray({
             </Link>
             <Link
               href="/privacy"
+              locale={locale}
               role="menuitem"
               onClick={() => setMenuOpen(false)}
               className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm text-[var(--on-surface)] hover:bg-[var(--surface-container-low)]"

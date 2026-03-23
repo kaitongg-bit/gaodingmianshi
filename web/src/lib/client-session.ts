@@ -41,6 +41,8 @@ export type WorkspaceQuestion = {
   /** ai | user，用于展示或后续逻辑 */
   source?: "ai" | "user";
   imagePreview?: string;
+  /** 与 DB topic_category 一致 */
+  topicCategory?: string;
 };
 
 export type WorkspaceChatTurn = { role: "user" | "assistant"; content: string };

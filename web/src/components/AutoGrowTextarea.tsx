@@ -1,7 +1,7 @@
 "use client";
 
-import { useLayoutEffect, useRef } from "react";
-import type { TextareaHTMLAttributes } from "react";
+import { forwardRef, useLayoutEffect, useRef } from "react";
+import type { MutableRefObject, Ref, TextareaHTMLAttributes } from "react";
 
 type Props = Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "rows"> & {
   /**
@@ -11,20 +11,28 @@ type Props = Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "rows"> & {
   maxHeightPx?: number;
 };
 
+function mergeRefs<T>(...refs: Array<Ref<T> | undefined>) {
+  return (value: T | null) => {
+    for (const ref of refs) {
+      if (ref == null) continue;
+      if (typeof ref === "function") ref(value);
+      else (ref as MutableRefObject<T | null>).current = value;
+    }
+  };
+}
+
 /**
  * 从约一行高度起随内容增高，避免大段空白占位；默认不封顶，避免嵌套滚轮。
  */
-export function AutoGrowTextarea({
-  value,
-  maxHeightPx,
-  className = "",
-  onChange,
-  ...rest
-}: Props) {
-  const ref = useRef<HTMLTextAreaElement>(null);
+export const AutoGrowTextarea = forwardRef<HTMLTextAreaElement, Props>(function AutoGrowTextarea(
+  { value, maxHeightPx, className = "", onChange, ...rest },
+  forwardedRef,
+) {
+  const innerRef = useRef<HTMLTextAreaElement>(null);
+  const setRef = mergeRefs(innerRef, forwardedRef);
 
   useLayoutEffect(() => {
-    const el = ref.current;
+    const el = innerRef.current;
     if (!el) return;
     el.style.height = "auto";
     const h = el.scrollHeight;
@@ -40,7 +48,7 @@ export function AutoGrowTextarea({
 
   return (
     <textarea
-      ref={ref}
+      ref={setRef}
       rows={1}
       value={value}
       onChange={onChange}
@@ -48,4 +56,4 @@ export function AutoGrowTextarea({
       {...rest}
     />
   );
-}
+});

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { clampRoundsCount } from "@/lib/project-rounds";
 import { getAuthedSupabase } from "@/lib/server/require-auth";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -94,7 +95,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
   if (typeof body.jd_text === "string") patch.jd_text = body.jd_text;
   if (body.analysis_jsonb !== undefined) patch.analysis_jsonb = body.analysis_jsonb;
   if (typeof body.rounds_count === "number" && Number.isFinite(body.rounds_count)) {
-    patch.rounds_count = Math.min(5, Math.max(1, Math.floor(body.rounds_count)));
+    patch.rounds_count = clampRoundsCount(body.rounds_count);
   }
   if (typeof body.active_round === "number" && Number.isFinite(body.active_round)) {
     patch.active_round = Math.max(1, Math.floor(body.active_round));
@@ -126,6 +127,26 @@ export async function PATCH(req: Request, ctx: Ctx) {
   const { error } = await supabase.from("projects").update(patch).eq("id", id);
   if (error) {
     return NextResponse.json({ error: "update_failed", message: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
+}
+
+export async function DELETE(_req: Request, ctx: Ctx) {
+  const { id } = await ctx.params;
+  const { supabase, user } = await getAuthedSupabase();
+  if (!user) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  const ok = await assertProjectOwner(supabase, id, user.id);
+  if (!ok) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+
+  const { error } = await supabase.from("projects").delete().eq("id", id);
+  if (error) {
+    return NextResponse.json({ error: "delete_failed", message: error.message }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true });

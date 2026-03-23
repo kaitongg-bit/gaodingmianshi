@@ -16,8 +16,11 @@ export function ProjectsClient() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const skipRenameBlurRef = useRef(false);
+  const cardMenuRef = useRef<HTMLDivElement>(null);
 
   const refresh = useCallback(async () => {
     setLoadError(null);
@@ -41,6 +44,17 @@ export function ProjectsClient() {
       renameInputRef.current?.select();
     }
   }, [editingId]);
+
+  useEffect(() => {
+    if (!openMenuId) return;
+    function onDoc(e: MouseEvent) {
+      const node = e.target as Node;
+      if (cardMenuRef.current?.contains(node)) return;
+      setOpenMenuId(null);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [openMenuId]);
 
   const realCount = list.length;
   const avgProgress =
@@ -81,12 +95,35 @@ export function ProjectsClient() {
     setEditingId(null);
   }, []);
 
-  const startRename = useCallback((e: React.MouseEvent, p: ProjectCard) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const openRenameFromMenu = useCallback((p: ProjectCard) => {
+    setOpenMenuId(null);
     setEditingId(p.id);
     setRenameDraft(p.title);
   }, []);
+
+  const deleteProject = useCallback(
+    async (id: string, e?: React.MouseEvent) => {
+      e?.preventDefault();
+      e?.stopPropagation();
+      setOpenMenuId(null);
+      if (!window.confirm(t("deleteConfirm"))) return;
+      setDeletingId(id);
+      setLoadError(null);
+      try {
+        const r = await fetch(`/api/projects/${id}`, { method: "DELETE" });
+        const j = (await r.json()) as { error?: string };
+        if (!r.ok) {
+          setLoadError(j.error === "unauthorized" ? t("deleteUnauthorized") : t("deleteFailed"));
+          return;
+        }
+        if (editingId === id) setEditingId(null);
+        await refresh();
+      } finally {
+        setDeletingId(null);
+      }
+    },
+    [t, refresh, editingId],
+  );
 
   return (
     <div className="min-h-full bg-[var(--background)] pb-24 md:pb-8">
@@ -150,86 +187,126 @@ export function ProjectsClient() {
           <p className="mb-8 text-center text-sm text-[var(--on-surface-variant)]">{t("emptyHint")}</p>
         )}
 
-        <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
+        <div className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
           {list.map((p) => (
             <div
               key={p.id}
-              className="group relative flex min-h-[260px] rounded-xl border border-[var(--outline-variant)]/10 bg-[var(--surface-container-lowest)] p-1 shadow-sm transition hover:shadow-[var(--shadow-card)]"
+              className="group relative rounded-xl border border-[var(--outline-variant)]/10 bg-[var(--surface-container-lowest)] p-px shadow-sm transition hover:shadow-[var(--shadow-card)]"
             >
               <Link
                 href={`/workspace?project=${p.id}`}
-                className="absolute inset-0 z-0 rounded-xl outline-none ring-inset ring-[var(--primary)] focus-visible:ring-2"
+                className="absolute inset-0 z-0 rounded-[0.6875rem] outline-none ring-inset ring-[var(--primary)] focus-visible:ring-2"
                 aria-label={`${t("openProjectAria")}: ${p.title}`}
               />
-              <div className="pointer-events-none relative z-[1] flex min-h-[252px] w-full flex-col rounded-lg bg-[var(--surface-container-low)] p-5 sm:flex-row sm:gap-5">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-[var(--outline-variant)]/10 bg-white shadow-sm sm:h-16 sm:w-16">
-                  <MaterialIcon name="corporate_fare" className="!text-3xl text-[var(--primary)]" />
+              <div className="pointer-events-none relative z-[1] flex w-full items-stretch gap-3 rounded-[0.625rem] bg-[var(--surface-container-low)] px-3 py-3 sm:gap-4 sm:px-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--outline-variant)]/10 bg-white shadow-sm sm:h-11 sm:w-11">
+                  <MaterialIcon name="corporate_fare" className="!text-2xl text-[var(--primary)] sm:!text-[1.75rem]" />
                 </div>
 
-                <div className="mt-4 flex min-h-0 min-w-0 flex-1 flex-col sm:mt-0">
-                  <div className="min-h-[3.5rem]">
-                    {editingId === p.id ? (
-                      <input
-                        ref={renameInputRef}
-                        value={renameDraft}
-                        onChange={(e) => setRenameDraft(e.target.value)}
-                        className="pointer-events-auto mb-1 w-full rounded-lg border border-[var(--outline-variant)]/40 bg-[var(--surface-container-lowest)] px-3 py-2 text-base font-semibold text-[var(--on-surface)] outline-none focus:ring-2 focus:ring-[var(--primary)]/30"
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+                  <div className="flex items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      {editingId === p.id ? (
+                        <input
+                          ref={renameInputRef}
+                          value={renameDraft}
+                          onChange={(e) => setRenameDraft(e.target.value)}
+                          className="pointer-events-auto w-full rounded-lg border border-[var(--outline-variant)]/40 bg-[var(--surface-container-lowest)] px-2.5 py-1.5 text-sm font-semibold text-[var(--on-surface)] outline-none focus:ring-2 focus:ring-[var(--primary)]/30"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              void commitRename(p.id);
+                            }
+                            if (e.key === "Escape") {
+                              e.preventDefault();
+                              cancelRename();
+                            }
+                          }}
+                          onBlur={() => {
+                            if (skipRenameBlurRef.current) {
+                              skipRenameBlurRef.current = false;
+                              return;
+                            }
                             void commitRename(p.id);
-                          }
-                          if (e.key === "Escape") {
-                            e.preventDefault();
-                            cancelRename();
-                          }
-                        }}
-                        onBlur={() => {
-                          if (skipRenameBlurRef.current) {
-                            skipRenameBlurRef.current = false;
-                            return;
-                          }
-                          void commitRename(p.id);
-                        }}
-                      />
-                    ) : (
-                      <h3 className="line-clamp-2 font-headline text-lg font-bold leading-snug text-[var(--on-surface)] md:text-xl">
-                        {p.title}
-                      </h3>
-                    )}
-                  </div>
+                          }}
+                        />
+                      ) : (
+                        <>
+                          <h3 className="line-clamp-1 font-headline text-base font-bold leading-tight text-[var(--on-surface)] sm:text-lg">
+                            {p.title}
+                          </h3>
+                          <p className="mt-0.5 text-xs text-[var(--on-surface-variant)]">{p.date}</p>
+                        </>
+                      )}
+                    </div>
 
-                  <div className="mt-2 flex items-start gap-1">
                     {editingId !== p.id ? (
-                      <button
-                        type="button"
-                        title={t("renameTitle")}
-                        aria-label={t("renameTitle")}
-                        onClick={(e) => startRename(e, p)}
-                        className="pointer-events-auto rounded-md p-1.5 text-[var(--on-surface-variant)] transition hover:bg-[var(--surface-container-high)] hover:text-[var(--primary)]"
+                      <div
+                        ref={openMenuId === p.id ? cardMenuRef : undefined}
+                        className="pointer-events-auto relative z-[3] shrink-0"
                       >
-                        <MaterialIcon name="edit" className="!text-lg" />
-                      </button>
+                        <button
+                          type="button"
+                          title={t("cardMenuAria")}
+                          aria-label={t("cardMenuAria")}
+                          aria-expanded={openMenuId === p.id}
+                          aria-haspopup="menu"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setOpenMenuId((id) => (id === p.id ? null : p.id));
+                          }}
+                          className="-mr-1 -mt-0.5 rounded-lg p-1.5 text-[var(--on-surface-variant)] transition hover:bg-[var(--surface-container-high)] hover:text-[var(--on-surface)]"
+                        >
+                          <MaterialIcon name="more_vert" className="!text-xl" />
+                        </button>
+                        {openMenuId === p.id ? (
+                          <div
+                            role="menu"
+                            className="absolute right-0 top-full z-[4] mt-1 min-w-[9.5rem] rounded-xl border border-[var(--outline-variant)]/15 bg-[var(--surface)] py-1 shadow-lg"
+                          >
+                            <button
+                              type="button"
+                              role="menuitem"
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[var(--on-surface)] hover:bg-[var(--surface-container-low)]"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                openRenameFromMenu(p);
+                              }}
+                            >
+                              <MaterialIcon name="edit" className="!text-lg text-[var(--on-surface-variant)]" />
+                              {t("renameTitle")}
+                            </button>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              disabled={deletingId === p.id}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-[var(--error)] hover:bg-[var(--error)]/8 disabled:opacity-40"
+                              onClick={(e) => void deleteProject(p.id, e)}
+                            >
+                              <MaterialIcon name="delete" className="!text-lg" />
+                              {t("deleteTitle")}
+                            </button>
+                          </div>
+                        ) : null}
+                      </div>
                     ) : null}
                   </div>
 
-                  <span className="mt-1 inline-flex w-fit rounded bg-[var(--surface-container-highest)] px-2 py-1 text-xs text-[var(--on-surface)]">
-                    {p.role}
-                  </span>
-
-                  <p className="mt-3 text-sm text-[var(--on-surface-variant)]">{p.date}</p>
-
-                  <div className="mt-3 flex items-center gap-4">
-                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--surface-container-high)]">
+                  <div className="mt-2 flex items-center gap-3 sm:mt-2.5">
+                    <div className="h-1 min-w-0 flex-1 overflow-hidden rounded-full bg-[var(--surface-container-high)]">
                       <div
-                        className="h-full bg-[var(--primary)] transition-[width]"
+                        className="h-full rounded-full bg-[var(--primary)] transition-[width]"
                         style={{ width: `${p.progress}%` }}
                       />
                     </div>
-                    <span className="text-sm font-bold text-[var(--primary)]">{p.progress}%</span>
+                    <span className="shrink-0 text-xs font-bold tabular-nums text-[var(--primary)] sm:text-sm">
+                      {p.progress}%
+                    </span>
                   </div>
 
-                  <div className="relative z-[2] mt-auto flex justify-end pt-4">
+                  <div className="relative z-[2] mt-2 flex justify-end sm:mt-2.5">
                     <Link
                       href={`/prep?project=${p.id}`}
                       className="pointer-events-auto text-xs font-medium text-[var(--on-surface-variant)] underline-offset-4 transition hover:text-[var(--primary)] hover:underline"
@@ -242,18 +319,6 @@ export function ProjectsClient() {
             </div>
           ))}
         </div>
-
-        {realCount > 0 && (
-          <div className="mt-14 flex justify-center">
-            <button
-              type="button"
-              className="flex items-center gap-2 rounded-xl border border-[var(--outline-variant)]/30 px-8 py-3 text-sm font-medium text-[var(--primary)] transition hover:bg-[var(--surface-container-low)]"
-            >
-              {t("loadArchive")}
-              <MaterialIcon name="expand_more" className="!text-base" />
-            </button>
-          </div>
-        )}
       </main>
 
       <nav className="fixed bottom-0 left-0 z-50 flex w-full justify-around border-t border-[var(--outline-variant)]/10 bg-[var(--surface)]/90 px-4 py-3 backdrop-blur-xl md:hidden">
@@ -265,10 +330,10 @@ export function ProjectsClient() {
           <MaterialIcon name="add_circle" />
           <span className="mt-1 text-[10px] font-medium uppercase tracking-widest">{t("mobileNew")}</span>
         </button>
-        <span className="flex flex-col items-center text-[var(--on-surface-variant)]">
-          <MaterialIcon name="settings" />
-          <span className="mt-1 text-[10px] font-medium uppercase tracking-widest">{t("mobileSettings")}</span>
-        </span>
+        <Link href="/support" className="flex flex-col items-center text-[var(--on-surface-variant)]">
+          <MaterialIcon name="help" />
+          <span className="mt-1 text-[10px] font-medium uppercase tracking-widest">{t("mobileSupport")}</span>
+        </Link>
       </nav>
     </div>
   );

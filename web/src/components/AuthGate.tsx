@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useLocale } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const locale = useLocale();
   const [ok, setOk] = useState(false);
 
   useEffect(() => {
@@ -16,7 +18,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         setOk(true);
         return;
       }
-      router.replace("/auth/login");
+      router.replace("/auth/login", { locale });
     });
 
     const {
@@ -26,12 +28,12 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
         setOk(true);
       } else {
         setOk(false);
-        router.replace("/auth/login");
+        router.replace("/auth/login", { locale });
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [router]);
+  }, [router, locale]);
 
   if (!ok) {
     return (

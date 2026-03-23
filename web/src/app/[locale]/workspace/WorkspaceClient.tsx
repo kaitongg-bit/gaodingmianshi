@@ -3,8 +3,9 @@
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLocale, useTranslations } from "next-intl";
-import { useRouter } from "@/i18n/navigation";
+import { useLocale, useMessages, useTranslations } from "next-intl";
+import { Link, useRouter } from "@/i18n/navigation";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { AutoGrowTextarea } from "@/components/AutoGrowTextarea";
 import { DraftNav } from "@/components/DraftNav";
 import { MarkdownBody } from "@/components/MarkdownBody";
@@ -18,6 +19,12 @@ import type {
 import { PENDING_ROUND_SESSION_KEY } from "@/lib/projects-storage";
 import { cleanScriptContent } from "@/lib/script-clean";
 import { serializeScriptsToTranscript } from "@/lib/transcript-scripts";
+import {
+  QUESTION_TOPIC_ORDER,
+  QUESTION_TOPIC_SLUGS,
+  type QuestionTopicSlug,
+} from "@/lib/question-topics";
+import { clampRoundsCount, MAX_INTERVIEW_ROUNDS } from "@/lib/project-rounds";
 
 type ChatTurn = WorkspaceChatTurn;
 
@@ -36,17 +43,150 @@ function mapChatError(
   return err ?? "error";
 }
 
+function mapExtractError(
+  code: string | undefined,
+  t: ReturnType<typeof useTranslations<"Workspace">>,
+): string {
+  if (code === "missing_api_key") return t("apiKeyMissing");
+  if (code === "insufficient_credits") return t("insufficientCredits");
+  if (code === "unauthorized") return t("loginRequired");
+  if (code === "no_questions_found") return t("extractNoQuestions");
+  if (code === "need_text_or_image") return t("extractNeedInput");
+  if (code === "model_json_invalid") return t("extractModelError");
+  return t("extractFailed");
+}
+
+function buildInterviewMarkdown(
+  mode: "round" | "topic",
+  questions: WorkspaceQuestion[],
+  scriptById: Record<string, string>,
+  t: ReturnType<typeof useTranslations<"Workspace">>,
+  opts?: { onlyRound?: number },
+): string {
+  const pending = (title: string) => `${t("scriptPending")} ${title}`;
+  const bodyFor = (q: WorkspaceQuestion) =>
+    scriptById[q.id]?.trim() || pending(q.title);
+
+  const topicTag = (q: WorkspaceQuestion) => {
+    const slug = displayTopicSlug(q);
+    return ` _(${t(`topic_${slug}`)})_`;
+  };
+
+  const qs =
+    opts?.onlyRound != null
+      ? questions.filter((q) => q.round === opts.onlyRound)
+      : questions;
+
+  if (mode === "round") {
+    const byRound = new Map<number, WorkspaceQuestion[]>();
+    for (const q of qs) {
+      const arr = byRound.get(q.round) ?? [];
+      arr.push(q);
+      byRound.set(q.round, arr);
+    }
+    const rounds = [...byRound.keys()].sort((a, b) => a - b);
+    const lines: string[] = [];
+    for (const r of rounds) {
+      lines.push(`# ${t("exportRoundHeading", { n: r })}`, "");
+      const list = byRound.get(r)!;
+      list.forEach((q, i) => {
+        lines.push(`## ${i + 1}. ${q.title}${topicTag(q)}`, "", bodyFor(q), "");
+      });
+    }
+    return `${lines.join("\n").trim()}\n`;
+  }
+
+  const byCat = new Map<string, WorkspaceQuestion[]>();
+  for (const q of qs) {
+    const c =
+      q.topicCategory && (QUESTION_TOPIC_SLUGS as readonly string[]).includes(q.topicCategory)
+        ? q.topicCategory
+        : "other";
+    const arr = byCat.get(c) ?? [];
+    arr.push(q);
+    byCat.set(c, arr);
+  }
+  const lines: string[] = [];
+  for (const slug of QUESTION_TOPIC_ORDER) {
+    const list = byCat.get(slug);
+    if (!list?.length) continue;
+    lines.push(`# ${t(`topic_${slug}`)}`, "");
+    const sorted = [...list].sort(
+      (a, b) => a.round - b.round || a.title.localeCompare(b.title),
+    );
+    sorted.forEach((q, i) => {
+      lines.push(
+        `## ${i + 1}. ${t("exportRoundInline", { n: q.round })} ${q.title}`,
+        "",
+        bodyFor(q),
+        "",
+      );
+    });
+  }
+  return `${lines.join("\n").trim()}\n`;
+}
+
+function displayTopicSlug(q: WorkspaceQuestion): QuestionTopicSlug {
+  const c = q.topicCategory;
+  if (c && (QUESTION_TOPIC_SLUGS as readonly string[]).includes(c)) {
+    return c as QuestionTopicSlug;
+  }
+  return "other";
+}
+
+/** 异步加载路径不用 t()，避免 next-intl 在键未合并进客户端 messages 时报 MISSING_MESSAGE */
+const WS_BOOT_FALLBACK = {
+  workspacePartialLoad: {
+    en: "Some data could not be loaded (questions or chat history). You can keep working here — refresh if something looks missing.",
+    zh: "部分数据未能加载（题目或对话历史）。仍可继续在工作区操作；若内容不全请刷新页面。",
+  },
+  workspaceLoadFailed: {
+    en: "Could not load this workspace. Check your connection and try again.",
+    zh: "无法加载工作区，请检查网络后重试。",
+  },
+  workspaceProjectMissing: {
+    en: "This project was not found or you don't have access to it.",
+    zh: "未找到该项目，或你无权访问。",
+  },
+  workspaceLoadRetry: {
+    en: "Try again",
+    zh: "重试",
+  },
+} as const;
+
+function workspaceBootString(
+  messages: Record<string, unknown>,
+  key: keyof typeof WS_BOOT_FALLBACK,
+  locale: string,
+): string {
+  const ws = messages.Workspace as Record<string, unknown> | undefined;
+  const raw = ws?.[key];
+  if (typeof raw === "string" && raw.trim().length > 0) return raw;
+  const fb = WS_BOOT_FALLBACK[key];
+  return locale === "zh" ? fb.zh : fb.en;
+}
+
 export function WorkspaceClient() {
   const t = useTranslations("Workspace");
+  const tNav = useTranslations("Nav");
   const locale = useLocale();
+  const intlMessages = useMessages() as Record<string, unknown>;
+  const intlMessagesRef = useRef(intlMessages);
+  intlMessagesRef.current = intlMessages;
   const router = useRouter();
+  const routerRef = useRef(router);
+  routerRef.current = router;
+  const localeRef = useRef(locale);
+  localeRef.current = locale;
   const searchParams = useSearchParams();
   const projectQuery = searchParams.get("project") ?? "";
-  const draftFileInputRef = useRef<HTMLInputElement>(null);
+  const draftTextareaRef = useRef<HTMLTextAreaElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const [session, setSession] = useState<WorkspaceSession | null>(null);
   const [cloudReady, setCloudReady] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [workspaceBootstrapError, setWorkspaceBootstrapError] = useState<string | null>(null);
   const [questions, setQuestions] = useState<WorkspaceQuestion[]>([]);
   const [activeRound, setActiveRound] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -62,6 +202,7 @@ export function WorkspaceClient() {
   const [loadingChat, setLoadingChat] = useState(false);
   const [addingDraft, setAddingDraft] = useState(false);
   const [addRoundBusy, setAddRoundBusy] = useState(false);
+  const [removeRoundBusy, setRemoveRoundBusy] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editRound, setEditRound] = useState(1);
@@ -70,6 +211,11 @@ export function WorkspaceClient() {
   const [scriptSectionExpanded, setScriptSectionExpanded] = useState<Record<string, boolean>>({});
   const [transcriptPanelOpen, setTranscriptPanelOpen] = useState(true);
   const [addQuestionModalOpen, setAddQuestionModalOpen] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const [exportSortMode, setExportSortMode] = useState<"round" | "topic">("round");
+  const [exportScope, setExportScope] = useState<"all" | "currentRound">("all");
+  const [editTopic, setEditTopic] = useState<QuestionTopicSlug>("other");
+  const [chatPasteNotice, setChatPasteNotice] = useState<string | null>(null);
 
   const reloadQuestionsOnly = useCallback(async () => {
     if (!projectQuery || !UUID_RE.test(projectQuery)) return;
@@ -107,7 +253,7 @@ export function WorkspaceClient() {
 
   const handleAddRound = useCallback(async () => {
     if (!projectQuery || !session) return;
-    if (session.roundsCount >= 5) return;
+    if (session.roundsCount >= MAX_INTERVIEW_ROUNDS) return;
     const next = session.roundsCount + 1;
     setAddRoundBusy(true);
     setError(null);
@@ -135,86 +281,213 @@ export function WorkspaceClient() {
     }
   }, [projectQuery, session, scriptById, t]);
 
+  const handleRemoveRound = useCallback(
+    async (round: number) => {
+      if (!projectQuery || !session || session.roundsCount <= 1) return;
+      if (!window.confirm(tNav("removeRoundConfirm", { n: round }))) return;
+      setRemoveRoundBusy(true);
+      setError(null);
+      try {
+        const del = await fetch(`/api/projects/${projectQuery}/rounds/${round}`, {
+          method: "DELETE",
+          credentials: "same-origin",
+        });
+        const dj = (await del.json()) as { error?: string };
+        if (!del.ok) {
+          setError(
+            dj.error === "cannot_remove_last_round" ? t("removeRoundLast") : t("removeRoundFailed"),
+          );
+          return;
+        }
+        const r = await fetch(`/api/projects/${projectQuery}/workspace`, {
+          credentials: "same-origin",
+        });
+        const j = (await r.json()) as {
+          project?: {
+            id: string;
+            resume_text: string;
+            jd_text: string;
+            rounds_count: number | null;
+            active_round: number | null;
+            analysis_jsonb: unknown;
+          };
+          questions?: WorkspaceQuestion[];
+          chatById?: Record<string, ChatTurn[]>;
+          scriptById?: Record<string, string>;
+        };
+        if (!r.ok || !j.project) {
+          setLoadAttempt((n) => n + 1);
+          return;
+        }
+        const proj = j.project;
+        const list = j.questions ?? [];
+        const roundsCoerced = clampRoundsCount(Number(proj.rounds_count) || 3);
+        const ws: WorkspaceSession = {
+          projectId: proj.id,
+          resume: proj.resume_text ?? "",
+          jd: proj.jd_text ?? "",
+          roundsCount: roundsCoerced,
+          analysis: (proj.analysis_jsonb ?? null) as AnalysisPayload | null,
+          questions: list,
+          chatById: j.chatById ?? {},
+          scriptById: j.scriptById ?? {},
+        };
+        setSession(ws);
+        setQuestions(list.map((q) => ({ ...q })));
+        setChatById(j.chatById ?? {});
+        setScriptById(j.scriptById ?? {});
+        const ar = Math.min(
+          roundsCoerced,
+          Math.max(1, Number(proj.active_round) || 1),
+        );
+        setActiveRound(ar);
+        const pick = list.find((q) => q.round === ar) ?? list[0];
+        setSelectedId(pick?.id ?? null);
+        setEditingId(null);
+      } catch {
+        setError("network");
+      } finally {
+        setRemoveRoundBusy(false);
+      }
+    },
+    [projectQuery, session, t, tNav],
+  );
+
   useEffect(() => {
     if (!projectQuery || !UUID_RE.test(projectQuery)) {
-      router.replace("/projects");
+      routerRef.current.replace("/projects");
       return;
     }
     let cancelled = false;
     setCloudReady(false);
     setSession(null);
+    setWorkspaceBootstrapError(null);
 
-    void (async () => {
-      const r = await fetch(`/api/projects/${projectQuery}/workspace`);
-      const j = (await r.json()) as {
+    async function loadWorkspace(after401Refresh: boolean): Promise<void> {
+      if (cancelled) return;
+      const r = await fetch(`/api/projects/${projectQuery}/workspace`, {
+        credentials: "same-origin",
+      });
+      if (cancelled) return;
+
+      type BootJson = {
         project?: {
           id: string;
           resume_text: string;
           jd_text: string;
-          rounds_count: number;
-          active_round: number;
+          rounds_count: number | null;
+          active_round: number | null;
           analysis_jsonb: unknown;
         };
         questions?: WorkspaceQuestion[];
         chatById?: Record<string, ChatTurn[]>;
         scriptById?: Record<string, string>;
         error?: string;
+        message?: string;
       };
 
+      let j: BootJson;
+      try {
+        j = (await r.json()) as BootJson;
+      } catch {
+        if (!cancelled) {
+          setWorkspaceBootstrapError(
+            workspaceBootString(intlMessagesRef.current, "workspaceLoadFailed", localeRef.current),
+          );
+        }
+        return;
+      }
       if (cancelled) return;
-      if (!r.ok || !j.project) {
-        router.replace("/prep");
+
+      if (r.status === 401 && !after401Refresh) {
+        const supabase = createSupabaseBrowserClient();
+        await supabase.auth.refreshSession();
+        if (cancelled) return;
+        await loadWorkspace(true);
         return;
       }
 
-      const qs = j.questions ?? [];
-      if (qs.length === 0) {
-        router.replace(`/prep?project=${projectQuery}`);
+      const proj = j.project;
+      if (proj) {
+        const qs = j.questions ?? [];
+        const roundsCoerced = clampRoundsCount(Number(proj.rounds_count) || 3);
+        const ws: WorkspaceSession = {
+          projectId: proj.id,
+          resume: proj.resume_text ?? "",
+          jd: proj.jd_text ?? "",
+          roundsCount: roundsCoerced,
+          analysis: (proj.analysis_jsonb ?? null) as AnalysisPayload | null,
+          questions: qs,
+          chatById: j.chatById ?? {},
+          scriptById: j.scriptById ?? {},
+        };
+
+        setSession(ws);
+        setQuestions(qs.map((q) => ({ ...q })));
+        setChatById(j.chatById ?? {});
+        setScriptById(j.scriptById ?? {});
+
+        const pendingRaw = sessionStorage.getItem(PENDING_ROUND_SESSION_KEY);
+        if (pendingRaw) {
+          const rN = Number.parseInt(pendingRaw, 10);
+          sessionStorage.removeItem(PENDING_ROUND_SESSION_KEY);
+          const round =
+            Number.isFinite(rN) && rN >= 1 && rN <= ws.roundsCount ? rN : 1;
+          setActiveRound(round);
+          const pick = qs.find((q) => q.round === round) ?? qs[0];
+          setSelectedId(pick?.id ?? null);
+        } else {
+          const ar = Math.min(
+            ws.roundsCount,
+            Math.max(1, Number(proj.active_round) || 1),
+          );
+          setActiveRound(ar);
+          const pick = qs.find((q) => q.round === ar) ?? qs[0];
+          setSelectedId(pick?.id ?? null);
+        }
+
+        setCloudReady(true);
+        if (r.ok) {
+          setError(null);
+        } else if (j.error === "questions_failed" || j.error === "messages_failed") {
+          setError(
+            workspaceBootString(intlMessagesRef.current, "workspacePartialLoad", localeRef.current),
+          );
+        } else {
+          setError(
+            workspaceBootString(intlMessagesRef.current, "workspaceLoadFailed", localeRef.current),
+          );
+        }
         return;
       }
 
-      const ws: WorkspaceSession = {
-        projectId: j.project.id,
-        resume: j.project.resume_text,
-        jd: j.project.jd_text,
-        roundsCount: j.project.rounds_count,
-        analysis: (j.project.analysis_jsonb ?? null) as AnalysisPayload | null,
-        questions: qs,
-        chatById: j.chatById ?? {},
-        scriptById: j.scriptById ?? {},
-      };
-
-      setSession(ws);
-      setQuestions(qs.map((q) => ({ ...q })));
-      setChatById(j.chatById ?? {});
-      setScriptById(j.scriptById ?? {});
-
-      const pendingRaw = sessionStorage.getItem(PENDING_ROUND_SESSION_KEY);
-      if (pendingRaw) {
-        const rN = Number.parseInt(pendingRaw, 10);
-        sessionStorage.removeItem(PENDING_ROUND_SESSION_KEY);
-        const round =
-          Number.isFinite(rN) && rN >= 1 && rN <= ws.roundsCount ? rN : 1;
-        setActiveRound(round);
-        const pick = qs.find((q) => q.round === round) ?? qs[0];
-        setSelectedId(pick?.id ?? null);
-      } else {
-        const ar = Math.min(
-          ws.roundsCount,
-          Math.max(1, Number(j.project.active_round) || 1),
+      if (r.status === 401) {
+        if (!cancelled) routerRef.current.replace("/auth/login");
+        return;
+      }
+      if (r.status === 404) {
+        if (!cancelled) {
+          setWorkspaceBootstrapError(
+            workspaceBootString(intlMessagesRef.current, "workspaceProjectMissing", localeRef.current),
+          );
+        }
+        return;
+      }
+      if (!cancelled) {
+        setWorkspaceBootstrapError(
+          j.error ??
+            j.message ??
+            workspaceBootString(intlMessagesRef.current, "workspaceLoadFailed", localeRef.current),
         );
-        setActiveRound(ar);
-        const pick = qs.find((q) => q.round === ar) ?? qs[0];
-        setSelectedId(pick?.id ?? null);
       }
+    }
 
-      setCloudReady(true);
-    })();
+    void loadWorkspace(false);
 
     return () => {
       cancelled = true;
     };
-  }, [projectQuery, router]);
+  }, [projectQuery, loadAttempt]);
 
   useEffect(() => {
     if (!cloudReady || !projectQuery) return;
@@ -257,12 +530,19 @@ export function WorkspaceClient() {
     setEditingId(q.id);
     setEditTitle(q.title);
     setEditRound(q.round);
+    const tc = q.topicCategory;
+    setEditTopic(
+      tc && (QUESTION_TOPIC_SLUGS as readonly string[]).includes(tc)
+        ? (tc as QuestionTopicSlug)
+        : "other",
+    );
   }, []);
 
   const cancelEdit = useCallback(() => {
     setEditingId(null);
     setEditTitle("");
     setEditRound(1);
+    setEditTopic("other");
   }, []);
 
   const saveEdit = useCallback(async () => {
@@ -278,7 +558,7 @@ export function WorkspaceClient() {
       const res = await fetch(`/api/projects/${projectQuery}/questions/${editingId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, round: editRound }),
+        body: JSON.stringify({ title, round: editRound, topic_category: editTopic }),
       });
       const j = (await res.json()) as { question?: WorkspaceQuestion; error?: string };
       if (!res.ok) {
@@ -295,6 +575,7 @@ export function WorkspaceClient() {
                   round: j.question!.round,
                   source: j.question!.source ?? x.source,
                   imagePreview: j.question!.imagePreview ?? x.imagePreview,
+                  topicCategory: j.question!.topicCategory ?? x.topicCategory,
                 }
               : x,
           ),
@@ -317,6 +598,7 @@ export function WorkspaceClient() {
     activeRound,
     selectedId,
     cancelEdit,
+    editTopic,
     t,
   ]);
 
@@ -353,8 +635,40 @@ export function WorkspaceClient() {
           const pick = sameRound[0] ?? remaining[0] ?? null;
           setSelectedId(pick?.id ?? null);
         }
-        if (remaining.length === 0) {
-          router.replace(`/prep?project=${projectQuery}`);
+      } catch {
+        setError("network");
+      } finally {
+        setRowBusy(null);
+      }
+    },
+    [projectQuery, questions, activeRound, selectedId, editingId, cancelEdit, t],
+  );
+
+  const patchQuestionTopic = useCallback(
+    async (qid: string, slug: QuestionTopicSlug) => {
+      if (!projectQuery) return;
+      setRowBusy(qid);
+      setError(null);
+      try {
+        const res = await fetch(`/api/projects/${projectQuery}/questions/${qid}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ topic_category: slug }),
+        });
+        const j = (await res.json()) as {
+          question?: { id: string; topicCategory?: string };
+          error?: string;
+        };
+        if (!res.ok) {
+          setError(j.error ?? "save_failed");
+          return;
+        }
+        if (j.question) {
+          setQuestions((prev) =>
+            prev.map((x) =>
+              x.id === qid ? { ...x, topicCategory: j.question!.topicCategory } : x,
+            ),
+          );
         }
       } catch {
         setError("network");
@@ -362,16 +676,24 @@ export function WorkspaceClient() {
         setRowBusy(null);
       }
     },
-    [
-      projectQuery,
-      questions,
-      activeRound,
-      selectedId,
-      editingId,
-      cancelEdit,
-      router,
-      t,
-    ],
+    [projectQuery],
+  );
+
+  const onChatPaste = useCallback(
+    (e: React.ClipboardEvent<HTMLInputElement>) => {
+      const items = e.clipboardData?.items;
+      if (!items?.length) return;
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        if (it?.kind === "file" && it.type.startsWith("image/")) {
+          e.preventDefault();
+          setChatPasteNotice(t("chatNoImages"));
+          window.setTimeout(() => setChatPasteNotice(null), 2800);
+          return;
+        }
+      }
+    },
+    [t],
   );
 
   const moveQuestion = useCallback(
@@ -514,7 +836,6 @@ export function WorkspaceClient() {
     setAddQuestionModalOpen(false);
     setDraftText("");
     setDraftAttachment(null);
-    if (draftFileInputRef.current) draftFileInputRef.current.value = "";
   }, []);
 
   const onModalPaste = useCallback(
@@ -564,19 +885,41 @@ export function WorkspaceClient() {
     return () => document.removeEventListener("keydown", onKey);
   }, [addQuestionModalOpen, closeAddQuestionModal]);
 
-  const exportMarkdown = useCallback(() => {
-    const pending = t("scriptPending");
-    const lines = questions.map((q, i) => {
-      const body = scriptById[q.id]?.trim() || `${pending} ${q.title}`;
-      return `## ${i + 1}. ${q.title}\n\n${body}\n`;
+  useEffect(() => {
+    if (!addQuestionModalOpen) return;
+    const id = requestAnimationFrame(() => {
+      draftTextareaRef.current?.focus();
     });
-    const blob = new Blob([lines.join("\n")], { type: "text/markdown" });
+    return () => cancelAnimationFrame(id);
+  }, [addQuestionModalOpen]);
+
+  const pasteShortcut = useMemo(() => {
+    if (typeof navigator === "undefined") return "Ctrl+V";
+    return /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent) ? "⌘V" : "Ctrl+V";
+  }, []);
+
+  const openExportDialog = useCallback(() => {
+    setExportSortMode("round");
+    setExportScope("all");
+    setExportDialogOpen(true);
+  }, []);
+
+  const confirmExportMarkdown = useCallback(() => {
+    const onlyRound = exportScope === "currentRound" ? activeRound : undefined;
+    const md = buildInterviewMarkdown(exportSortMode, questions, scriptById, t, {
+      onlyRound,
+    });
+    const blob = new Blob([md], { type: "text/markdown" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `interview-script-${locale}.md`;
+    a.download =
+      exportScope === "currentRound"
+        ? `interview-script-round-${activeRound}-${locale}.md`
+        : `interview-script-${locale}.md`;
     a.click();
     URL.revokeObjectURL(a.href);
-  }, [questions, scriptById, locale, t]);
+    setExportDialogOpen(false);
+  }, [exportSortMode, exportScope, activeRound, questions, scriptById, locale, t]);
 
   const addDraftQuestion = useCallback(async () => {
     const text = draftText.trim();
@@ -584,25 +927,95 @@ export function WorkspaceClient() {
     if (!projectQuery) return;
     setAddingDraft(true);
     setError(null);
-    const title =
-      text || t("questionFromAttachment", { name: draftAttachment?.name ?? "file" });
     const attachment_url =
       draftAttachment && draftAttachment.dataUrl.length < 12_000
         ? draftAttachment.dataUrl
         : null;
+
+    const shouldUseAi =
+      draftAttachment != null ||
+      text.length > 40 ||
+      (text.match(/\n/g) || []).length >= 1 ||
+      /\d+\s*[\.\)、]\s*\S/m.test(text);
+
     try {
+      if (shouldUseAi) {
+        const ex = await fetch("/api/ai/extract-questions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            imageDataUrl: draftAttachment?.dataUrl,
+            text: text || undefined,
+            locale,
+          }),
+        });
+        const ej = (await ex.json()) as {
+          error?: string;
+          items?: { title: string; category: string }[];
+        };
+        if (!ex.ok) {
+          setError(mapExtractError(ej.error, t));
+          return;
+        }
+        const items = ej.items ?? [];
+        const batchItems = items.map((it, i) => ({
+          title: it.title,
+          topic_category: it.category,
+          attachment_url: i === 0 ? attachment_url : null,
+        }));
+        const res = await fetch(`/api/projects/${projectQuery}/questions/batch`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ round: activeRound, items: batchItems }),
+        });
+        const j = (await res.json()) as {
+          questions?: {
+            id: string;
+            round: number;
+            title: string;
+            source?: "ai" | "user";
+            imagePreview?: string;
+            topicCategory?: string;
+          }[];
+          error?: string;
+        };
+        if (!res.ok || !j.questions?.length) {
+          setError(j.error ?? "add_failed");
+          return;
+        }
+        const created = j.questions.map((q) => ({
+          id: q.id,
+          round: q.round,
+          title: q.title,
+          source: (q.source ?? "user") as "ai" | "user",
+          imagePreview: q.imagePreview,
+          topicCategory: q.topicCategory,
+        }));
+        setQuestions((prev) => [...prev, ...created]);
+        setSelectedId(created[created.length - 1].id);
+        closeAddQuestionModal();
+        return;
+      }
+
       const res = await fetch(`/api/projects/${projectQuery}/questions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title,
+          title: text,
           round: activeRound,
           source: "user",
           attachment_url,
+          topic_category: "other",
         }),
       });
       const j = (await res.json()) as {
-        question?: { id: string; round: number; title: string; imagePreview?: string };
+        question?: {
+          id: string;
+          round: number;
+          title: string;
+          imagePreview?: string;
+          topicCategory?: string;
+        };
         error?: string;
       };
       if (!res.ok || !j.question) {
@@ -618,6 +1031,7 @@ export function WorkspaceClient() {
           title: q.title,
           source: "user" as const,
           imagePreview: q.imagePreview,
+          topicCategory: q.topicCategory,
         },
       ]);
       setSelectedId(q.id);
@@ -627,48 +1041,15 @@ export function WorkspaceClient() {
     } finally {
       setAddingDraft(false);
     }
-  }, [draftText, draftAttachment, activeRound, projectQuery, t, closeAddQuestionModal]);
-
-  const onDraftFile = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setError(null);
-      const file = e.target.files?.[0];
-      if (!file) return;
-      if (file.type.startsWith("image/")) {
-        if (file.size > MAX_IMAGE_BYTES) {
-          setError(t("fileTooLarge"));
-          e.target.value = "";
-          return;
-        }
-        const reader = new FileReader();
-        reader.onload = () => {
-          const dataUrl = typeof reader.result === "string" ? reader.result : "";
-          if (dataUrl) setDraftAttachment({ dataUrl, name: file.name });
-        };
-        reader.readAsDataURL(file);
-        return;
-      }
-      if (file.type === "text/plain" || file.name.endsWith(".txt")) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const txt = typeof reader.result === "string" ? reader.result : "";
-          setDraftText((prev) => (prev ? `${prev}\n\n${txt}` : txt));
-        };
-        reader.readAsText(file);
-        e.target.value = "";
-        return;
-      }
-      setError(t("fileTypeUnsupported"));
-      e.target.value = "";
-    },
-    [t],
-  );
-
-  const pasteLink = useCallback(() => {
-    const url = typeof window !== "undefined" ? window.prompt(t("linkPrompt")) : null;
-    if (!url?.trim()) return;
-    setDraftText((prev) => (prev ? `${prev}\n\n${url.trim()}` : url.trim()));
-  }, [t]);
+  }, [
+    draftText,
+    draftAttachment,
+    activeRound,
+    projectQuery,
+    locale,
+    t,
+    closeAddQuestionModal,
+  ]);
 
   const transcriptSections = useMemo(
     () => questions.map((q) => ({ q, body: scriptById[q.id] ?? "" })),
@@ -698,6 +1079,30 @@ export function WorkspaceClient() {
   }, []);
 
   if (!session) {
+    if (workspaceBootstrapError) {
+      return (
+        <div className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-[var(--background)] px-4 text-center text-sm text-[var(--on-surface-variant)]">
+          <p className="max-w-md leading-relaxed">{workspaceBootstrapError}</p>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              className="rounded-full bg-[var(--primary)] px-4 py-2 text-sm font-medium text-[var(--on-primary)] transition hover:opacity-95"
+              onClick={() => setLoadAttempt((n) => n + 1)}
+            >
+              {workspaceBootString(intlMessagesRef.current, "workspaceLoadRetry", locale)}
+            </button>
+            {UUID_RE.test(projectQuery) ? (
+              <Link
+                href={`/prep?project=${projectQuery}`}
+                className="rounded-full border border-[var(--outline-variant)]/40 px-4 py-2 text-sm font-medium text-[var(--on-surface)] transition hover:bg-[var(--surface-container-low)]"
+              >
+                {t("goPrep")}
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="flex min-h-dvh items-center justify-center bg-[var(--background)] text-sm text-[var(--on-surface-variant)]">
         …
@@ -707,7 +1112,7 @@ export function WorkspaceClient() {
 
   return (
     <>
-    <div className="flex h-[100dvh] flex-col overflow-hidden bg-[var(--background)]">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--background)]">
       <DraftNav
         variant="app"
         activeStep={activeRound}
@@ -716,6 +1121,8 @@ export function WorkspaceClient() {
         prepProjectId={projectQuery}
         onAddRound={handleAddRound}
         addRoundBusy={addRoundBusy}
+        onRemoveRound={handleRemoveRound}
+        removeRoundBusy={removeRoundBusy}
       />
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden pt-14 md:pt-16">
@@ -789,6 +1196,20 @@ export function WorkspaceClient() {
                                 ))}
                               </select>
                             </label>
+                            <label className="flex flex-col gap-1 text-xs text-[var(--on-surface-variant)]">
+                              <span className="font-medium">{t("editTopicLabel")}</span>
+                              <select
+                                value={editTopic}
+                                onChange={(e) => setEditTopic(e.target.value as QuestionTopicSlug)}
+                                className="rounded border border-[var(--outline-variant)]/40 bg-[var(--surface-container-lowest)] px-2 py-1.5 text-[var(--on-surface)]"
+                              >
+                                {QUESTION_TOPIC_SLUGS.map((slug) => (
+                                  <option key={slug} value={slug}>
+                                    {t(`topic_${slug}`)}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
                             <div className="flex flex-wrap gap-2">
                               <button
                                 type="button"
@@ -812,8 +1233,10 @@ export function WorkspaceClient() {
                           <>
                             <button
                               type="button"
-                              onClick={() => setSelectedId(q.id)}
-                              className={`flex w-full gap-3 p-3 text-left transition hover:bg-[var(--surface-container-high)]/60 ${
+                              onClick={() => {
+                                setSelectedId(q.id);
+                              }}
+                              className={`flex w-full gap-3 p-3 pb-2 text-left transition hover:bg-[var(--surface-container-high)]/60 ${
                                 selectedId === q.id ? "" : ""
                               }`}
                             >
@@ -832,7 +1255,7 @@ export function WorkspaceClient() {
                               </span>
                             </button>
                             <div
-                              className="flex flex-wrap items-center gap-1 border-t border-[var(--outline-variant)]/10 px-2 py-1.5"
+                              className="flex items-center gap-0.5 border-t border-[var(--outline-variant)]/10 px-2 py-1"
                               onClick={(e) => e.stopPropagation()}
                               onKeyDown={(e) => e.stopPropagation()}
                             >
@@ -863,15 +1286,37 @@ export function WorkspaceClient() {
                               >
                                 <MaterialIcon name="edit" className="!text-lg" />
                               </button>
-                              <button
-                                type="button"
-                                title={t("deleteQuestion")}
-                                disabled={busy}
-                                onClick={() => void deleteQuestion(q)}
-                                className="rounded p-1 text-[var(--on-surface-variant)] hover:bg-[var(--error)]/15 hover:text-[var(--error)] disabled:opacity-30"
-                              >
-                                <MaterialIcon name="delete" className="!text-lg" />
-                              </button>
+                              <div className="ml-auto flex min-w-0 items-center gap-0.5">
+                                <label className="sr-only" htmlFor={`topic-${q.id}`}>
+                                  {t("topicPickerTitle")}
+                                </label>
+                                <select
+                                  id={`topic-${q.id}`}
+                                  aria-label={t("topicPickerTitle")}
+                                  title={t("topicPickerTitle")}
+                                  disabled={busy}
+                                  value={displayTopicSlug(q)}
+                                  onChange={(e) =>
+                                    void patchQuestionTopic(q.id, e.target.value as QuestionTopicSlug)
+                                  }
+                                  className="max-w-[6.5rem] cursor-pointer truncate rounded border border-[var(--outline-variant)]/25 bg-[var(--surface-container-lowest)] py-0.5 pl-1 pr-1 text-[10px] leading-tight text-[var(--on-surface-variant)] outline-none hover:border-[var(--primary)]/30 disabled:cursor-not-allowed disabled:opacity-40 sm:max-w-[7.5rem]"
+                                >
+                                  {QUESTION_TOPIC_SLUGS.map((slug) => (
+                                    <option key={slug} value={slug}>
+                                      {t(`topic_${slug}`)}
+                                    </option>
+                                  ))}
+                                </select>
+                                <button
+                                  type="button"
+                                  title={t("deleteQuestion")}
+                                  disabled={busy}
+                                  onClick={() => void deleteQuestion(q)}
+                                  className="shrink-0 rounded p-1 text-[var(--on-surface-variant)] hover:bg-[var(--error)]/15 hover:text-[var(--error)] disabled:opacity-30"
+                                >
+                                  <MaterialIcon name="delete" className="!text-lg" />
+                                </button>
+                              </div>
                             </div>
                           </>
                         )}
@@ -903,8 +1348,8 @@ export function WorkspaceClient() {
                 {selectedQ ? (
                   <p className="mt-1 text-sm text-[var(--on-surface-variant)]">
                     {t("refining")}{" "}
-                    <span className="text-[var(--primary)] italic">
-                      {selectedQ.title.length > 90 ? `${selectedQ.title.slice(0, 90)}…` : selectedQ.title}
+                    <span className="whitespace-pre-wrap break-words text-[var(--primary)] italic">
+                      {selectedQ.title}
                     </span>
                     {loadingChat ? (
                       <span className="ml-2 text-xs text-[var(--on-surface-variant)]">…</span>
@@ -956,11 +1401,13 @@ export function WorkspaceClient() {
                     {t("importSelection")}
                   </button>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-1">
+                  <div className="flex gap-2">
                   <input
                     className="min-w-0 flex-1 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] px-3 py-2.5 text-sm outline-none focus:ring-1 focus:ring-[var(--primary)]/25"
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
+                    onPaste={onChatPaste}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
@@ -978,6 +1425,12 @@ export function WorkspaceClient() {
                   >
                     {t("send")}
                   </button>
+                  </div>
+                  {chatPasteNotice ? (
+                    <p className="text-xs text-amber-800" role="status">
+                      {chatPasteNotice}
+                    </p>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -999,7 +1452,7 @@ export function WorkspaceClient() {
                   <div className="flex shrink-0 items-center gap-1">
                     <button
                       type="button"
-                      onClick={exportMarkdown}
+                      onClick={openExportDialog}
                       className="rounded-lg p-2 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container-high)] hover:text-[var(--primary)]"
                       title={t("exportMd")}
                     >
@@ -1085,7 +1538,7 @@ export function WorkspaceClient() {
                 </button>
                 <button
                   type="button"
-                  onClick={exportMarkdown}
+                  onClick={openExportDialog}
                   className="hidden rounded-lg p-2 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container-high)] hover:text-[var(--primary)] lg:block"
                   title={t("exportMd")}
                 >
@@ -1126,75 +1579,183 @@ export function WorkspaceClient() {
               <MaterialIcon name="close" className="!text-xl" />
             </button>
           </div>
-          <div className="space-y-3 overflow-y-auto p-4">
-            <p className="text-xs leading-relaxed text-[var(--on-surface-variant)]">
-              {t("addQuestionFormatHint")}
-            </p>
-            <AutoGrowTextarea
-              value={draftText}
-              onChange={(e) => setDraftText(e.target.value)}
+          <div className="space-y-4 overflow-y-auto px-5 pb-5 pt-1">
+            <div
+              className={`rounded-2xl border-2 border-dashed px-4 py-4 transition-colors ${
+                draftAttachment
+                  ? "border-[var(--primary)]/40 bg-[var(--primary)]/5"
+                  : "border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)]/50"
+              }`}
               onPaste={onModalPaste}
-              placeholder={t("draftPlaceholder")}
-              maxHeightPx={200}
-              className="min-h-11 w-full resize-none rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] px-3 py-2.5 text-sm leading-relaxed text-[var(--on-surface)] outline-none focus:ring-1 focus:ring-[var(--primary)]/30"
-            />
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => draftFileInputRef.current?.click()}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--outline-variant)]/35 bg-[var(--surface-container-low)] px-3 py-2 text-xs font-medium text-[var(--on-surface)] hover:border-[var(--primary)]/40"
-              >
-                <MaterialIcon name="upload_file" className="!text-base" />
-                {t("uploadTitle")}
-              </button>
-              <button
-                type="button"
-                onClick={pasteLink}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--outline-variant)]/35 bg-[var(--surface-container-low)] px-3 py-2 text-xs font-medium text-[var(--on-surface)] hover:border-[var(--primary)]/40"
-              >
-                <MaterialIcon name="link" className="!text-base" />
-                {t("linkTitle")}
-              </button>
-            </div>
-            <input
-              ref={draftFileInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif,.txt,text/plain"
-              className="hidden"
-              onChange={onDraftFile}
-            />
-            {draftAttachment ? (
-              <div className="flex items-center gap-2 rounded-lg border border-[var(--outline-variant)]/20 bg-[var(--surface-container-lowest)] p-2">
-                <Image
-                  src={draftAttachment.dataUrl}
-                  alt=""
-                  width={56}
-                  height={56}
-                  unoptimized
-                  className="h-14 w-14 rounded object-cover"
-                />
-                <span className="min-w-0 flex-1 truncate text-xs text-[var(--on-surface-variant)]">
-                  {draftAttachment.name}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDraftAttachment(null);
-                    if (draftFileInputRef.current) draftFileInputRef.current.value = "";
-                  }}
-                  className="text-xs font-medium text-[var(--primary)]"
+            >
+              <p className="text-sm leading-relaxed text-[var(--on-surface)]">
+                {t("addQuestionFormatHint")}
+              </p>
+              <p className="mt-2 text-xs leading-relaxed text-[var(--on-surface-variant)]">
+                {t("addQuestionAiScopeNote")}
+              </p>
+              <p className="mt-3 flex items-start gap-2 rounded-lg bg-[var(--surface)]/80 px-2.5 py-2 text-xs text-[var(--primary)]">
+                <MaterialIcon name="content_paste" className="!text-base shrink-0 opacity-90" />
+                <span>{t("pasteScreenshotHint", { shortcut: pasteShortcut })}</span>
+              </p>
+              <AutoGrowTextarea
+                ref={draftTextareaRef}
+                value={draftText}
+                onChange={(e) => setDraftText(e.target.value)}
+                placeholder={t("draftPlaceholder")}
+                maxHeightPx={220}
+                className="mt-3 min-h-[5.5rem] w-full resize-none rounded-xl border border-[var(--outline-variant)]/25 bg-[var(--surface)] px-3 py-3 text-sm leading-relaxed text-[var(--on-surface)] outline-none focus:ring-2 focus:ring-[var(--primary)]/20"
+              />
+              {draftAttachment ? (
+                <div
+                  className="mt-3 flex items-center gap-3 border-t border-[var(--outline-variant)]/15 pt-3"
+                  role="status"
+                  aria-live="polite"
                 >
-                  {t("removeAttachment")}
-                </button>
-              </div>
-            ) : null}
+                  <Image
+                    src={draftAttachment.dataUrl}
+                    alt=""
+                    width={48}
+                    height={48}
+                    unoptimized
+                    className="h-12 w-12 shrink-0 rounded-lg object-cover ring-1 ring-[var(--outline-variant)]/20"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-[var(--on-surface)]">{t("pasteAttachedLabel")}</p>
+                    <span className="mt-0.5 block truncate text-[11px] text-[var(--on-surface-variant)]">
+                      {draftAttachment.name}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDraftAttachment(null)}
+                    className="shrink-0 text-xs font-medium text-[var(--primary)] hover:underline"
+                  >
+                    {t("removeAttachment")}
+                  </button>
+                </div>
+              ) : null}
+            </div>
             <button
               type="button"
               onClick={() => void addDraftQuestion()}
               disabled={(!draftText.trim() && !draftAttachment) || addingDraft}
-              className="w-full rounded-xl bg-[var(--primary)] py-3 text-sm font-medium text-[var(--on-primary)] transition hover:opacity-95 disabled:opacity-40"
+              className="w-full rounded-xl bg-[var(--primary)] py-3.5 text-sm font-medium text-[var(--on-primary)] shadow-sm transition hover:opacity-95 disabled:opacity-40"
             >
-              {t("addToList")}
+              {addingDraft ? t("extracting") : t("addToList")}
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null}
+
+    {exportDialogOpen ? (
+      <div
+        className="fixed inset-0 z-[85] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="export-md-title"
+        onClick={() => setExportDialogOpen(false)}
+      >
+        <div
+          className="w-full max-w-md rounded-t-2xl border border-[var(--outline-variant)]/20 bg-[var(--surface)] p-5 shadow-xl sm:rounded-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h2
+            id="export-md-title"
+            className="font-headline text-lg font-semibold text-[var(--on-surface)]"
+          >
+            {t("exportDialogTitle")}
+          </h2>
+          <p className="mt-2 text-sm text-[var(--on-surface-variant)]">{t("exportDialogHint")}</p>
+          <fieldset className="mt-4 space-y-3">
+            <legend className="sr-only">{t("exportScopeLegend")}</legend>
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--outline-variant)]/20 p-3 has-[:checked]:border-[var(--primary)]/40 has-[:checked]:bg-[var(--primary)]/5">
+              <input
+                type="radio"
+                name="exportScope"
+                checked={exportScope === "all"}
+                onChange={() => setExportScope("all")}
+                className="mt-1 accent-[var(--primary)]"
+              />
+              <span>
+                <span className="block text-sm font-medium text-[var(--on-surface)]">
+                  {t("exportScopeAll")}
+                </span>
+                <span className="mt-0.5 block text-xs text-[var(--on-surface-variant)]">
+                  {t("exportScopeAllSub")}
+                </span>
+              </span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--outline-variant)]/20 p-3 has-[:checked]:border-[var(--primary)]/40 has-[:checked]:bg-[var(--primary)]/5">
+              <input
+                type="radio"
+                name="exportScope"
+                checked={exportScope === "currentRound"}
+                onChange={() => setExportScope("currentRound")}
+                className="mt-1 accent-[var(--primary)]"
+              />
+              <span>
+                <span className="block text-sm font-medium text-[var(--on-surface)]">
+                  {t("exportScopeCurrentRound", { n: activeRound })}
+                </span>
+                <span className="mt-0.5 block text-xs text-[var(--on-surface-variant)]">
+                  {t("exportScopeCurrentRoundSub")}
+                </span>
+              </span>
+            </label>
+          </fieldset>
+          <fieldset className="mt-4 space-y-3">
+            <legend className="sr-only">{t("exportSortLegend")}</legend>
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--outline-variant)]/20 p-3 has-[:checked]:border-[var(--primary)]/40 has-[:checked]:bg-[var(--primary)]/5">
+              <input
+                type="radio"
+                name="exportSort"
+                checked={exportSortMode === "round"}
+                onChange={() => setExportSortMode("round")}
+                className="mt-1 accent-[var(--primary)]"
+              />
+              <span>
+                <span className="block text-sm font-medium text-[var(--on-surface)]">
+                  {t("exportSortByRound")}
+                </span>
+                <span className="mt-0.5 block text-xs text-[var(--on-surface-variant)]">
+                  {t("exportSortByRoundSub")}
+                </span>
+              </span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[var(--outline-variant)]/20 p-3 has-[:checked]:border-[var(--primary)]/40 has-[:checked]:bg-[var(--primary)]/5">
+              <input
+                type="radio"
+                name="exportSort"
+                checked={exportSortMode === "topic"}
+                onChange={() => setExportSortMode("topic")}
+                className="mt-1 accent-[var(--primary)]"
+              />
+              <span>
+                <span className="block text-sm font-medium text-[var(--on-surface)]">
+                  {t("exportSortByTopic")}
+                </span>
+                <span className="mt-0.5 block text-xs text-[var(--on-surface-variant)]">
+                  {t("exportSortByTopicSub")}
+                </span>
+              </span>
+            </label>
+          </fieldset>
+          <div className="mt-5 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setExportDialogOpen(false)}
+              className="flex-1 rounded-xl border border-[var(--outline-variant)]/35 py-3 text-sm font-medium text-[var(--on-surface)]"
+            >
+              {t("exportCancel")}
+            </button>
+            <button
+              type="button"
+              onClick={confirmExportMarkdown}
+              className="flex-1 rounded-xl bg-[var(--primary)] py-3 text-sm font-medium text-[var(--on-primary)]"
+            >
+              {t("exportConfirm")}
             </button>
           </div>
         </div>

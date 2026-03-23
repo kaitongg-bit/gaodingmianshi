@@ -60,7 +60,7 @@ export default async function LocaleLayout({
   return (
     <html
       lang={locale}
-      className={`${inter.variable} ${newsreader.variable} h-full`}
+      className={`${inter.variable} ${newsreader.variable} h-full min-h-dvh`}
       suppressHydrationWarning
     >
       <head>
@@ -69,7 +69,7 @@ export default async function LocaleLayout({
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=swap"
         />
       </head>
-      <body className="min-h-full antialiased selection:bg-[var(--primary-container)] selection:text-[var(--on-primary-container)]">
+      <body className="flex min-h-dvh flex-col overflow-x-hidden antialiased selection:bg-[var(--primary-container)] selection:text-[var(--on-primary-container)]">
         <NextIntlClientProvider messages={messages}>
           <a
             href="#main"

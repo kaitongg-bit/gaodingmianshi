@@ -9,7 +9,7 @@ export function PageTransitionShell({ children }: { children: React.ReactNode })
   const pathname = usePathname();
 
   return (
-    <div key={pathname} className="page-transition-enter min-h-[40vh]">
+    <div key={pathname} className="page-transition-enter flex min-h-0 flex-1 flex-col">
       {children}
     </div>
   );

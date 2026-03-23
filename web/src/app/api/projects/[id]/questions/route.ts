@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { normalizeQuestionTopic } from "@/lib/question-topics";
+import { isPostgresUndefinedColumn, QUESTIONS_SELECT_MINIMAL } from "@/lib/questions-compat";
 import { getAuthedSupabase } from "@/lib/server/require-auth";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -36,6 +38,7 @@ export async function POST(req: Request, ctx: Ctx) {
     source?: "ai" | "user";
     attachment_url?: string | null;
     sort_order?: number;
+    topic_category?: string | null;
   };
 
   const title = (body.title ?? "").trim();
@@ -50,6 +53,11 @@ export async function POST(req: Request, ctx: Ctx) {
       ? body.attachment_url
       : null;
 
+  const topic_category =
+    body.topic_category === null || body.topic_category === undefined
+      ? null
+      : normalizeQuestionTopic(String(body.topic_category));
+
   const { count } = await supabase
     .from("questions")
     .select("id", { count: "exact", head: true })
@@ -60,21 +68,52 @@ export async function POST(req: Request, ctx: Ctx) {
       ? body.sort_order
       : (count ?? 0);
 
-  const { data, error } = await supabase
+  const insertRow = {
+    project_id: projectId,
+    round_index: round,
+    title,
+    source,
+    sort_order,
+    attachment_url,
+    topic_category,
+  };
+
+  type InsertedQuestion = {
+    id: string;
+    round_index: number;
+    title: string;
+    source: string;
+    sort_order: number;
+    attachment_url: string | null;
+    topic_category?: string | null;
+  };
+
+  const ins1 = await supabase
     .from("questions")
-    .insert({
-      project_id: projectId,
-      round_index: round,
-      title,
-      source,
-      sort_order,
-      attachment_url,
-    })
-    .select("id, round_index, title, source, attachment_url")
+    .insert(insertRow)
+    .select(`${QUESTIONS_SELECT_MINIMAL}, topic_category`)
     .single();
+
+  let data: InsertedQuestion | null = ins1.data as InsertedQuestion | null;
+  let error = ins1.error;
+
+  if (error && isPostgresUndefinedColumn(error)) {
+    const { topic_category: _tc, ...withoutTopic } = insertRow;
+    const ins2 = await supabase
+      .from("questions")
+      .insert(withoutTopic)
+      .select(QUESTIONS_SELECT_MINIMAL)
+      .single();
+    data = ins2.data as InsertedQuestion | null;
+    error = ins2.error;
+  }
 
   if (error) {
     return NextResponse.json({ error: "insert_failed", message: error.message }, { status: 500 });
+  }
+
+  if (!data) {
+    return NextResponse.json({ error: "insert_failed", message: "no_row" }, { status: 500 });
   }
 
   return NextResponse.json({
@@ -84,6 +123,7 @@ export async function POST(req: Request, ctx: Ctx) {
       title: data.title,
       source: data.source,
       imagePreview: data.attachment_url ?? undefined,
+      topicCategory: (data as { topic_category?: string | null }).topic_category ?? undefined,
     },
   });
 }

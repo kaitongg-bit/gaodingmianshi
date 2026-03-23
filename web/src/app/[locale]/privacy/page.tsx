@@ -1,9 +1,15 @@
-import { getTranslations } from "next-intl/server";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { AuthGate } from "@/components/AuthGate";
 import { DraftNav } from "@/components/DraftNav";
 import { Link } from "@/i18n/navigation";
 
-export default async function PrivacyPage() {
+export default async function PrivacyPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  setRequestLocale(locale);
   const t = await getTranslations("UserMenu");
 
   return (
@@ -13,6 +19,7 @@ export default async function PrivacyPage() {
         <main id="main" className="mx-auto max-w-lg px-4 pb-24 pt-24">
         <Link
           href="/projects"
+          locale={locale}
           className="text-sm font-medium text-[var(--primary)] hover:underline"
         >
           ←
@@ -20,7 +27,15 @@ export default async function PrivacyPage() {
         <h1 className="mt-4 font-headline text-2xl font-semibold text-[var(--on-surface)]">
           {t("privacyPolicy")}
         </h1>
-        <p className="mt-3 text-[var(--on-surface-variant)]">{t("privacyBody")}</p>
+        <p className="mt-2 text-xs text-[var(--on-surface-variant)]">{t("privacyPageUpdated")}</p>
+        <div className="mt-6 space-y-4 text-sm leading-relaxed text-[var(--on-surface-variant)]">
+          <p>{t("privacyPageP1")}</p>
+          <p>{t("privacyPageP2")}</p>
+          <p>{t("privacyPageP3")}</p>
+          <p>{t("privacyPageP4")}</p>
+          <p>{t("privacyPageP5")}</p>
+          <p>{t("privacyPageP6")}</p>
+        </div>
         </main>
       </AuthGate>
     </>

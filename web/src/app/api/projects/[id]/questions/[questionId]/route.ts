@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { MAX_INTERVIEW_ROUNDS, MIN_INTERVIEW_ROUNDS } from "@/lib/project-rounds";
+import { normalizeQuestionTopic } from "@/lib/question-topics";
+import { isPostgresUndefinedColumn, QUESTIONS_SELECT_MINIMAL } from "@/lib/questions-compat";
 import { getAuthedSupabase } from "@/lib/server/require-auth";
 
 type Ctx = { params: Promise<{ id: string; questionId: string }> };
@@ -32,6 +35,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
     title?: string;
     round?: number;
     move?: "up" | "down";
+    topic_category?: string | null;
   };
   try {
     body = (await req.json()) as typeof body;
@@ -109,23 +113,75 @@ export async function PATCH(req: Request, ctx: Ctx) {
     patch.title = t;
   }
   if (typeof body.round === "number" && Number.isFinite(body.round)) {
-    patch.round_index = Math.min(5, Math.max(1, Math.floor(body.round)));
+    patch.round_index = Math.min(
+      MAX_INTERVIEW_ROUNDS,
+      Math.max(MIN_INTERVIEW_ROUNDS, Math.floor(body.round)),
+    );
+  }
+  if (body.topic_category !== undefined) {
+    if (body.topic_category === null) {
+      patch.topic_category = null;
+    } else if (typeof body.topic_category === "string") {
+      patch.topic_category = normalizeQuestionTopic(body.topic_category);
+    }
   }
 
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: "no_updates" }, { status: 400 });
   }
 
-  const { data: updated, error: uErr } = await supabase
-    .from("questions")
-    .update(patch)
-    .eq("id", questionId)
-    .eq("project_id", projectId)
-    .select("id, round_index, title, source, attachment_url")
-    .single();
+  type QuestionRowOut = {
+    id: string;
+    round_index: number;
+    title: string;
+    source: string;
+    attachment_url: string | null;
+    topic_category?: string | null;
+  };
+
+  async function doUpdate(
+    p: Record<string, unknown>,
+    selectCols: string,
+  ): Promise<{ data: QuestionRowOut | null; error: { message: string; code?: string } | null }> {
+    const r = await supabase
+      .from("questions")
+      .update(p)
+      .eq("id", questionId)
+      .eq("project_id", projectId)
+      .select(selectCols)
+      .single();
+    return { data: r.data as QuestionRowOut | null, error: r.error };
+  }
+
+  let { data: updated, error: uErr } = await doUpdate(
+    patch,
+    `${QUESTIONS_SELECT_MINIMAL}, topic_category`,
+  );
+
+  if (uErr && isPostgresUndefinedColumn(uErr)) {
+    const { topic_category: _tc, ...rest } = patch;
+    if (Object.keys(rest).length === 0 && patch.topic_category !== undefined) {
+      return NextResponse.json(
+        {
+          error: "topic_category_unavailable",
+          message:
+            "Database is missing column topic_category. Apply migration 20250325130000_question_topic_category.sql in Supabase.",
+        },
+        { status: 400 },
+      );
+    }
+    const legacyPatch = Object.keys(rest).length > 0 ? rest : patch;
+    const r2 = await doUpdate(legacyPatch, QUESTIONS_SELECT_MINIMAL);
+    updated = r2.data;
+    uErr = r2.error;
+  }
 
   if (uErr) {
     return NextResponse.json({ error: "update_failed", message: uErr.message }, { status: 500 });
+  }
+
+  if (!updated) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
   return NextResponse.json({
@@ -136,6 +192,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
       title: updated.title,
       source: updated.source,
       imagePreview: updated.attachment_url ?? undefined,
+      topicCategory: (updated as { topic_category?: string | null }).topic_category ?? undefined,
     },
   });
 }

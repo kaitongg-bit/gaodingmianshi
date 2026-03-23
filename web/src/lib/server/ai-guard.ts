@@ -1,6 +1,10 @@
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export type AiCreditReason = "ai_analyze" | "ai_questions" | "ai_chat";
+export type AiCreditReason =
+  | "ai_analyze"
+  | "ai_questions"
+  | "ai_chat"
+  | "ai_extract_questions";
 
 /**
  * 已登录用户扣积分；未登录 401；余额不足 402。

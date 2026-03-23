@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { clampRoundsCount } from "@/lib/project-rounds";
 import { GeminiConfigError, getGeminiJsonModel } from "@/lib/gemini";
 import { consumeCreditsForAi } from "@/lib/server/ai-guard";
 import { buildQuestionRoundPlan, buildQuestionStyleBlock } from "./prompt-builders";
@@ -18,7 +19,7 @@ export async function POST(req: Request) {
     const resume = (body.resume ?? "").trim();
     const jd = (body.jd ?? "").trim();
     const locale = body.locale === "en" ? "en" : "zh";
-    const rounds = Math.min(5, Math.max(1, Number(body.rounds) || 3));
+    const rounds = clampRoundsCount(Number(body.rounds) || 3);
     const extra = (body.extraHint ?? "").trim();
     const analysisStr =
       body.analysis !== undefined

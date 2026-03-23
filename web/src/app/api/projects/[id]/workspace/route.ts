@@ -1,9 +1,52 @@
 import { NextResponse } from "next/server";
 import { parseScriptsFromTranscript } from "@/lib/transcript-scripts";
 import { getAuthedSupabase } from "@/lib/server/require-auth";
+import { isPostgresUndefinedColumn, QUESTIONS_SELECT_MINIMAL } from "@/lib/questions-compat";
 import type { WorkspaceChatTurn } from "@/lib/client-session";
 
 type Ctx = { params: Promise<{ id: string }> };
+
+type QuestionRow = {
+  id: string;
+  round_index: number;
+  title: string;
+  source: string;
+  sort_order: number;
+  attachment_url: string | null;
+  /** 仅当已执行 topic_category 迁移并由其它查询写入后才有；此处 SELECT 不依赖该列 */
+  topic_category?: string | null;
+};
+
+function projectResponseSlice(project: {
+  id: string;
+  resume_text: string | null;
+  jd_text: string | null;
+  analysis_jsonb: unknown;
+  rounds_count: number | null;
+  active_round: number | null;
+  transcript_text: string | null;
+}) {
+  return {
+    id: project.id,
+    resume_text: project.resume_text,
+    jd_text: project.jd_text,
+    analysis_jsonb: project.analysis_jsonb,
+    rounds_count: project.rounds_count,
+    active_round: project.active_round,
+    transcript_text: project.transcript_text,
+  };
+}
+
+function mapQuestionRows(list: QuestionRow[]) {
+  return list.map((q) => ({
+    id: q.id,
+    round: q.round_index,
+    title: q.title,
+    source: q.source,
+    imagePreview: q.attachment_url ?? undefined,
+    topicCategory: q.topic_category ?? undefined,
+  }));
+}
 
 export async function GET(_req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
@@ -24,18 +67,45 @@ export async function GET(_req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  const { data: questions, error: qErr } = await supabase
+  const q1 = await supabase
     .from("questions")
-    .select("id, round_index, title, source, sort_order, attachment_url")
+    .select(`${QUESTIONS_SELECT_MINIMAL}, topic_category`)
     .eq("project_id", id)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
 
-  if (qErr) {
-    return NextResponse.json({ error: "questions_failed", message: qErr.message }, { status: 500 });
+  let questions: QuestionRow[] | null = q1.data as QuestionRow[] | null;
+  let qErr = q1.error;
+
+  if (qErr && isPostgresUndefinedColumn(qErr)) {
+    const r2 = await supabase
+      .from("questions")
+      .select(QUESTIONS_SELECT_MINIMAL)
+      .eq("project_id", id)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: true });
+    questions = r2.data as QuestionRow[] | null;
+    qErr = r2.error;
   }
 
-  const qList = questions ?? [];
+  const scriptByIdBase = parseScriptsFromTranscript(project.transcript_text ?? "");
+
+  if (qErr) {
+    /** 仍带上 project，避免客户端因缺少 project 误判并立刻跳回准备页 */
+    return NextResponse.json(
+      {
+        error: "questions_failed",
+        message: qErr.message,
+        project: projectResponseSlice(project),
+        questions: [] as ReturnType<typeof mapQuestionRows>,
+        chatById: {} as Record<string, WorkspaceChatTurn[]>,
+        scriptById: scriptByIdBase,
+      },
+      { status: 500 },
+    );
+  }
+
+  const qList = (questions ?? []) as QuestionRow[];
   const qids = qList.map((q) => q.id);
 
   const { data: messages, error: mErr } =
@@ -48,7 +118,17 @@ export async function GET(_req: Request, ctx: Ctx) {
           .order("created_at", { ascending: true });
 
   if (mErr) {
-    return NextResponse.json({ error: "messages_failed", message: mErr.message }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: "messages_failed",
+        message: mErr.message,
+        project: projectResponseSlice(project),
+        questions: mapQuestionRows(qList),
+        chatById: {} as Record<string, WorkspaceChatTurn[]>,
+        scriptById: scriptByIdBase,
+      },
+      { status: 500 },
+    );
   }
 
   const chatById: Record<string, WorkspaceChatTurn[]> = {};
@@ -59,26 +139,10 @@ export async function GET(_req: Request, ctx: Ctx) {
     chatById[m.question_id] = arr;
   }
 
-  const scriptById = parseScriptsFromTranscript(project.transcript_text ?? "");
-
   return NextResponse.json({
-    project: {
-      id: project.id,
-      resume_text: project.resume_text,
-      jd_text: project.jd_text,
-      analysis_jsonb: project.analysis_jsonb,
-      rounds_count: project.rounds_count,
-      active_round: project.active_round,
-      transcript_text: project.transcript_text,
-    },
-    questions: qList.map((q) => ({
-      id: q.id,
-      round: q.round_index,
-      title: q.title,
-      source: q.source,
-      imagePreview: q.attachment_url ?? undefined,
-    })),
+    project: projectResponseSlice(project),
+    questions: mapQuestionRows(qList),
     chatById,
-    scriptById,
+    scriptById: scriptByIdBase,
   });
 }

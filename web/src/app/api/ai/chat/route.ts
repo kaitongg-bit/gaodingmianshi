@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { clampRoundsCount } from "@/lib/project-rounds";
 import { GeminiConfigError, getGeminiProseModel } from "@/lib/gemini";
 import { consumeCreditsForAi } from "@/lib/server/ai-guard";
 
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
     const locale = body.locale === "en" ? "en" : "zh";
     const jd = (body.jd ?? "").trim().slice(0, MAX_JD_CHARS);
     const resume = (body.resume ?? "").trim().slice(0, MAX_RESUME_CHARS);
-    const round = Math.min(5, Math.max(1, Number(body.round) || 1));
+    const round = clampRoundsCount(Number(body.round) || 1);
 
     if (!questionTitle) {
       return NextResponse.json({ error: "question_required" }, { status: 400 });

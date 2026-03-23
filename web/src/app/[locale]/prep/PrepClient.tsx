@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocale, useMessages, useTranslations } from "next-intl";
+import { clampRoundsCount, MAX_INTERVIEW_ROUNDS } from "@/lib/project-rounds";
 import { useSearchParams } from "next/navigation";
 import { useRouter } from "@/i18n/navigation";
 import { DraftNav } from "@/components/DraftNav";
@@ -26,6 +27,7 @@ function mapAiError(
 
 export function PrepClient() {
   const t = useTranslations("Prep");
+  const tNav = useTranslations("Nav");
   const locale = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -42,17 +44,17 @@ export function PrepClient() {
   const [jd, setJd] = useState("");
   const [roundsCount, setRoundsCount] = useState(3);
   const [analysis, setAnalysis] = useState<AnalysisPayload | null>(null);
-  const [questionCount, setQuestionCount] = useState(0);
   const [loadingAnalyze, setLoadingAnalyze] = useState(false);
   const [loadingGen, setLoadingGen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [thinkingStep, setThinkingStep] = useState(0);
   const [addRoundBusy, setAddRoundBusy] = useState(false);
+  const [removeRoundBusy, setRemoveRoundBusy] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const handleAddRound = useCallback(async () => {
     if (!projectId) return;
-    if (roundsCount >= 5) return;
+    if (roundsCount >= MAX_INTERVIEW_ROUNDS) return;
     const next = roundsCount + 1;
     setAddRoundBusy(true);
     try {
@@ -68,6 +70,35 @@ export function PrepClient() {
       setAddRoundBusy(false);
     }
   }, [projectId, roundsCount]);
+
+  const handleRemoveRound = useCallback(
+    async (round: number) => {
+      if (!projectId || roundsCount <= 1) return;
+      if (!window.confirm(tNav("removeRoundConfirm", { n: round }))) return;
+      setRemoveRoundBusy(true);
+      try {
+        const del = await fetch(`/api/projects/${projectId}/rounds/${round}`, { method: "DELETE" });
+        const dj = (await del.json()) as { error?: string; rounds_count?: number };
+        if (!del.ok) {
+          setError(
+            dj.error === "cannot_remove_last_round" ? t("removeRoundLast") : t("removeRoundFailed"),
+          );
+          return;
+        }
+        if (typeof dj.rounds_count === "number") {
+          setRoundsCount(clampRoundsCount(dj.rounds_count));
+        } else {
+          setRoundsCount((c) => Math.max(1, c - 1));
+        }
+        setError(null);
+      } catch {
+        setError("network");
+      } finally {
+        setRemoveRoundBusy(false);
+      }
+    },
+    [projectId, roundsCount, t, tNav],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -138,9 +169,22 @@ export function PrepClient() {
       const p = j.project;
       setResume(p.resume_text ?? "");
       setJd(p.jd_text ?? "");
-      setRoundsCount(Math.min(5, Math.max(1, Number(p.rounds_count) || 3)));
-      setAnalysis((p.analysis_jsonb ?? null) as AnalysisPayload | null);
-      setQuestionCount(typeof p.question_count === "number" ? p.question_count : 0);
+      setRoundsCount(clampRoundsCount(Number(p.rounds_count) || 3));
+      {
+        const raw = p.analysis_jsonb;
+        let parsed: AnalysisPayload | null = null;
+        if (raw != null && typeof raw === "object" && !Array.isArray(raw)) {
+          parsed = raw as AnalysisPayload;
+        } else if (typeof raw === "string") {
+          try {
+            const o = JSON.parse(raw) as unknown;
+            if (o && typeof o === "object" && !Array.isArray(o)) parsed = o as AnalysisPayload;
+          } catch {
+            parsed = null;
+          }
+        }
+        setAnalysis(parsed);
+      }
       setHydrated(true);
     })();
     return () => {
@@ -179,15 +223,14 @@ export function PrepClient() {
     return () => window.clearTimeout(id);
   }, [resume, jd, roundsCount, analysis, projectId, hydrated]);
 
-  const canJumpToWorkspaceRounds = questionCount > 0;
-
+  /** 有 project 即可进工作区切换轮次（不再依赖题目数/分析结构，避免顶栏 Round 长期不可点） */
   const onRoundFromPrep = useCallback(
     (r: number) => {
-      if (!canJumpToWorkspaceRounds || !projectId) return;
+      if (!projectId) return;
       sessionStorage.setItem(PENDING_ROUND_SESSION_KEY, String(r));
       router.push(`/workspace?project=${projectId}`);
     },
-    [canJumpToWorkspaceRounds, projectId, router],
+    [projectId, router],
   );
 
   const runAnalyze = useCallback(async () => {
@@ -301,13 +344,6 @@ export function PrepClient() {
         setError(putJ.error ?? "save_questions_failed");
         return;
       }
-      setQuestionCount(
-        typeof putJ.totalCount === "number"
-          ? putJ.totalCount
-          : Array.isArray(putJ.questions)
-            ? putJ.questions.length
-            : json.questions.length,
-      );
       router.push(`/workspace?project=${projectId}`);
     } catch {
       setError("network");
@@ -326,9 +362,12 @@ export function PrepClient() {
           variant="app"
           activeStep="prep"
           roundsCount={roundsCount}
+          onRoundSelect={projectId ? onRoundFromPrep : undefined}
           prepProjectId={projectId ?? undefined}
           onAddRound={projectId ? handleAddRound : undefined}
           addRoundBusy={addRoundBusy}
+          onRemoveRound={projectId ? handleRemoveRound : undefined}
+          removeRoundBusy={removeRoundBusy}
         />
         <div className="flex min-h-[50vh] items-center justify-center px-4 pt-24 text-sm text-[var(--on-surface-variant)]">
           {loadError ?? "…"}
@@ -343,10 +382,12 @@ export function PrepClient() {
         variant="app"
         activeStep="prep"
         roundsCount={roundsCount}
-        onRoundSelect={canJumpToWorkspaceRounds ? onRoundFromPrep : undefined}
+        onRoundSelect={onRoundFromPrep}
         prepProjectId={projectId}
         onAddRound={projectId ? handleAddRound : undefined}
         addRoundBusy={addRoundBusy}
+        onRemoveRound={handleRemoveRound}
+        removeRoundBusy={removeRoundBusy}
       />
       <main id="main" className="mx-auto max-w-screen-2xl px-4 pb-16 pt-24 md:px-8">
         {loadError ? (

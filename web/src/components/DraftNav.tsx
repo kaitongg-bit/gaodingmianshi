@@ -9,6 +9,7 @@ import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { MaterialIcon } from "@/components/MaterialIcon";
 import { NavAccountTray } from "@/components/NavAccountTray";
 import { useEffect, useState } from "react";
+import { MAX_INTERVIEW_ROUNDS } from "@/lib/project-rounds";
 
 type Variant = "marketing" | "app";
 
@@ -22,6 +23,8 @@ export function DraftNav({
   prepProjectId,
   onAddRound,
   addRoundBusy,
+  onRemoveRound,
+  removeRoundBusy,
 }: {
   variant: Variant;
   /** prep | round index 1..n */
@@ -31,9 +34,12 @@ export function DraftNav({
   onRoundSelect?: (round: number) => void;
   /** 工作区返回准备页时带上 project，避免丢会话 */
   prepProjectId?: string;
-  /** 加号：在当前项目下增加一轮（最多 5 轮），新轮可无题目、由用户自拟 */
+  /** 加号：增加一轮；上限见 MAX_INTERVIEW_ROUNDS */
   onAddRound?: () => void | Promise<void>;
   addRoundBusy?: boolean;
+  /** 关闭某一轮（至少保留一轮） */
+  onRemoveRound?: (round: number) => void | Promise<void>;
+  removeRoundBusy?: boolean;
 }) {
   const t = useTranslations("Nav");
   const locale = useLocale();
@@ -100,10 +106,10 @@ export function DraftNav({
         )}
 
         {variant === "app" && activeStep !== undefined && (
-          <div className="hidden items-center gap-6 md:flex">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1.5 sm:gap-x-5 md:gap-6">
             <Link
               href={prepProjectId ? `/prep?project=${prepProjectId}` : "/prep"}
-              className={`pb-1 text-sm transition-colors ${
+              className={`shrink-0 pb-1 text-xs transition-colors sm:text-sm ${
                 activeStep === "prep"
                   ? "border-b-2 border-[var(--primary)] font-semibold text-[var(--on-surface)]"
                   : "border-b-2 border-transparent text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]"
@@ -113,71 +119,67 @@ export function DraftNav({
             </Link>
             {Array.from({ length: roundsCount }, (_, i) => i + 1).map((r) => {
               const selected = activeStep === r;
-              const className = `pb-1 text-sm transition-colors ${
+              const className = `shrink-0 pb-1 text-xs transition-colors sm:text-sm ${
                 selected
                   ? "border-b-2 border-[var(--primary)] font-semibold text-[var(--on-surface)]"
                   : onRoundSelect
                     ? "border-b-2 border-transparent text-[var(--on-surface-variant)] hover:text-[var(--on-surface)]"
                     : "text-[var(--on-surface-variant)]"
               }`;
-              if (onRoundSelect) {
-                return (
+              const tab =
+                onRoundSelect ? (
                   <button
-                    key={r}
                     type="button"
                     onClick={() => onRoundSelect(r)}
                     className={className}
                   >
                     {t("round", { n: r })}
                   </button>
+                ) : (
+                  <span className={className}>{t("round", { n: r })}</span>
                 );
-              }
               return (
-                <span key={r} className={className}>
-                  {t("round", { n: r })}
-                </span>
+                <div key={r} className="flex shrink-0 items-end gap-0.5">
+                  {tab}
+                  {onRemoveRound && roundsCount > 1 ? (
+                    <button
+                      type="button"
+                      disabled={removeRoundBusy}
+                      title={t("removeRoundTitle", { n: r })}
+                      aria-label={t("removeRoundTab", { n: r })}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        void onRemoveRound(r);
+                      }}
+                      className="mb-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[var(--on-surface-variant)] transition hover:bg-[var(--surface-container-high)] hover:text-[var(--error)] disabled:opacity-40"
+                    >
+                      <MaterialIcon name="close" className="!text-base" />
+                    </button>
+                  ) : null}
+                </div>
               );
             })}
-            {onAddRound && roundsCount < 5 ? (
+            {onAddRound && roundsCount < MAX_INTERVIEW_ROUNDS ? (
               <button
                 type="button"
                 disabled={addRoundBusy}
                 onClick={() => void onAddRound()}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--outline-variant)]/25 text-[var(--on-surface-variant)] transition hover:border-[var(--primary)]/35 hover:bg-[var(--surface-container-low)] hover:text-[var(--primary)] disabled:opacity-40"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[var(--outline-variant)]/25 text-[var(--on-surface-variant)] transition hover:border-[var(--primary)]/35 hover:bg-[var(--surface-container-low)] hover:text-[var(--primary)] disabled:opacity-40 sm:h-8 sm:w-8"
                 aria-label={t("addRoundTab")}
-                title={t("addRoundTitle")}
+                title={t("addRoundTitle", { max: MAX_INTERVIEW_ROUNDS })}
               >
-                <MaterialIcon name="add" className="!text-xl" />
+                <MaterialIcon name="add" className="!text-lg sm:!text-xl" />
               </button>
             ) : null}
           </div>
         )}
 
-        {variant === "marketing" && (
-          <div className="hidden items-center gap-6 md:flex">
-            <Link
-              href="/projects"
-              className="font-headline text-base italic tracking-tight text-[var(--primary)]"
-            >
-              {t("myProjects")}
-            </Link>
-            <span className="text-sm text-[var(--on-surface-variant)]">{t("settings")}</span>
-          </div>
-        )}
       </div>
 
       <div className="flex shrink-0 items-center gap-2 md:gap-3">
         {user ? (
-          <>
-            <button
-              type="button"
-              className="rounded-full p-2 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container-low)]"
-              aria-label={t("notifications")}
-            >
-              <MaterialIcon name="notifications" className="!text-xl" />
-            </button>
-            <NavAccountTray sessionEmail={user.email} sessionDisplayName={user.name} />
-          </>
+          <NavAccountTray sessionEmail={user.email} sessionDisplayName={user.name} />
         ) : (
           <>
             <LocaleSwitcher />
