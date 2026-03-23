@@ -36,6 +36,10 @@ lerna-debug.log*
 # 依赖（若日后在根目录也放 node_modules）
 node_modules/
 
+# Vercel：postbuild 可能把 web/.next、web/public 同步到仓库根，勿提交（源码在 web/）
+/.next/
+/public/
+
 # 证书与密钥文件
 *.pem
 *.key
