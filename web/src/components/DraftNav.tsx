@@ -20,8 +20,8 @@ export function DraftNav({
   roundsCount = 3,
   onRoundSelect,
   prepProjectId,
-  onNewSession,
-  newSessionBusy,
+  onAddRound,
+  addRoundBusy,
 }: {
   variant: Variant;
   /** prep | round index 1..n */
@@ -31,9 +31,9 @@ export function DraftNav({
   onRoundSelect?: (round: number) => void;
   /** 工作区返回准备页时带上 project，避免丢会话 */
   prepProjectId?: string;
-  /** 加号：新建项目并进入准备页（类似新标签） */
-  onNewSession?: () => void | Promise<void>;
-  newSessionBusy?: boolean;
+  /** 加号：在当前项目下增加一轮（最多 5 轮），新轮可无题目、由用户自拟 */
+  onAddRound?: () => void | Promise<void>;
+  addRoundBusy?: boolean;
 }) {
   const t = useTranslations("Nav");
   const locale = useLocale();
@@ -138,14 +138,14 @@ export function DraftNav({
                 </span>
               );
             })}
-            {onNewSession ? (
+            {onAddRound && roundsCount < 5 ? (
               <button
                 type="button"
-                disabled={newSessionBusy}
-                onClick={() => void onNewSession()}
+                disabled={addRoundBusy}
+                onClick={() => void onAddRound()}
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--outline-variant)]/25 text-[var(--on-surface-variant)] transition hover:border-[var(--primary)]/35 hover:bg-[var(--surface-container-low)] hover:text-[var(--primary)] disabled:opacity-40"
-                aria-label={t("newSessionTab")}
-                title={t("newSessionTab")}
+                aria-label={t("addRoundTab")}
+                title={t("addRoundTitle")}
               >
                 <MaterialIcon name="add" className="!text-xl" />
               </button>

@@ -14,7 +14,8 @@
     "credits": "Credits {n}",
     "prep": "0. Prep",
     "round": "Round {n}",
-    "newSessionTab": "New session",
+    "addRoundTab": "Add interview round",
+    "addRoundTitle": "Add another round (up to 5). New rounds may start empty—add your own questions.",
     "notifications": "Notifications"
   },
   "UserMenu": {
@@ -139,7 +140,7 @@
     "focusArea": "Focus area",
     "riskFactor": "Risk factor",
     "confirmCta": "Confirm & generate interview rounds",
-    "confirmHint": "This creates a customized multi-round practice schedule from your assets.",
+    "confirmHint": "Generates a new batch and appends it to your list—existing questions stay put. Edit, reorder, or delete in the workspace.",
     "thinkingSteps": [
       "Cross-checking JD with your resume…",
       "Extracting core interview themes…",
@@ -154,6 +155,10 @@
   "Workspace": {
     "questionList": "Question list",
     "draftQuestion": "Draft question",
+    "addQuestionShort": "Add question",
+    "addQuestionModalTitle": "Add custom question",
+    "addQuestionFormatHint": "PNG, JPG, WebP, or GIF. Click the text area and paste a screenshot from the clipboard.",
+    "addQuestionClose": "Close",
     "draftPlaceholder": "Type or paste a custom question…",
     "addToList": "Add to list",
     "generated": "Generated questions",
@@ -162,6 +167,10 @@
     "chatPlaceholder": "Ask AI to refine your response…",
     "send": "Send",
     "transcriptTitle": "Final transcript",
+    "transcriptHidePanel": "Hide transcript panel",
+    "transcriptShowPanel": "Show transcript panel",
+    "transcriptSectionToggle": "Expand or collapse this answer",
+    "scriptTextareaPlaceholder": "Edit your script here (Markdown ok). Selecting a question on the left scrolls here.",
     "export": "Export",
     "exportMd": "Markdown (.md)",
     "apiKeyMissing": "GEMINI_API_KEY missing — see /api/ai/health",
@@ -188,6 +197,16 @@
     "removeAttachment": "Remove",
     "questionFromAttachment": "Question from file: {name}",
     "fileTooLarge": "Image must be under 2 MB.",
-    "fileTypeUnsupported": "Use an image or a .txt file."
+    "fileTypeUnsupported": "Use an image or a .txt file.",
+    "editQuestion": "Edit",
+    "saveQuestion": "Save",
+    "cancelEdit": "Cancel",
+    "deleteQuestion": "Delete",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "deleteQuestionConfirm": "Delete this question? Its chat history will be removed too.",
+    "editRoundLabel": "Round",
+    "titleRequired": "Question text cannot be empty.",
+    "addRoundFailed": "Could not add a round. Please try again."
   }
 }

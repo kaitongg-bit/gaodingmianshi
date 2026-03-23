@@ -88,7 +88,10 @@ export async function POST(req: Request, ctx: Ctx) {
   });
 }
 
-/** 替换 AI 题目：删除该项目下 source=ai 的题目，再批量插入 */
+/**
+ * 批量追加 AI 题目（不删除已有题目；用户自拟题与历史 AI 题均保留）。
+ * 可选 replaceAi: true 时先删除该项目下 source=ai 的旧题再插入（旧行为）。
+ */
 export async function PUT(req: Request, ctx: Ctx) {
   const { id: projectId } = await ctx.params;
   const { supabase, user } = await getAuthedSupabase();
@@ -103,6 +106,7 @@ export async function PUT(req: Request, ctx: Ctx) {
 
   const body = (await req.json()) as {
     questions?: { title: string; round: number }[];
+    replaceAi?: boolean;
   };
 
   const items = Array.isArray(body.questions) ? body.questions : [];
@@ -110,22 +114,41 @@ export async function PUT(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "questions_required" }, { status: 400 });
   }
 
-  const { error: delErr } = await supabase
-    .from("questions")
-    .delete()
-    .eq("project_id", projectId)
-    .eq("source", "ai");
+  if (body.replaceAi === true) {
+    const { error: delErr } = await supabase
+      .from("questions")
+      .delete()
+      .eq("project_id", projectId)
+      .eq("source", "ai");
 
-  if (delErr) {
-    return NextResponse.json({ error: "delete_failed", message: delErr.message }, { status: 500 });
+    if (delErr) {
+      return NextResponse.json({ error: "delete_failed", message: delErr.message }, { status: 500 });
+    }
   }
+
+  const { data: maxRows, error: maxErr } = await supabase
+    .from("questions")
+    .select("sort_order")
+    .eq("project_id", projectId)
+    .order("sort_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (maxErr) {
+    return NextResponse.json({ error: "sort_query_failed", message: maxErr.message }, { status: 500 });
+  }
+
+  const baseSort =
+    typeof maxRows?.sort_order === "number" && Number.isFinite(maxRows.sort_order)
+      ? maxRows.sort_order + 1
+      : 0;
 
   const rows = items.map((q, i) => ({
     project_id: projectId,
     round_index: Math.max(1, Math.floor(Number(q.round) || 1)),
     title: String(q.title ?? "").trim() || "Question",
     source: "ai" as const,
-    sort_order: i,
+    sort_order: baseSort + i,
   }));
 
   const { data: inserted, error: insErr } = await supabase
@@ -137,6 +160,15 @@ export async function PUT(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "insert_failed", message: insErr.message }, { status: 500 });
   }
 
+  const { count: totalCount, error: cErr } = await supabase
+    .from("questions")
+    .select("id", { count: "exact", head: true })
+    .eq("project_id", projectId);
+
+  if (cErr) {
+    return NextResponse.json({ error: "count_failed", message: cErr.message }, { status: 500 });
+  }
+
   return NextResponse.json({
     questions: (inserted ?? []).map((q) => ({
       id: q.id,
@@ -144,5 +176,7 @@ export async function PUT(req: Request, ctx: Ctx) {
       title: q.title,
       imagePreview: q.attachment_url ?? undefined,
     })),
+    appendedCount: (inserted ?? []).length,
+    totalCount: totalCount ?? 0,
   });
 }

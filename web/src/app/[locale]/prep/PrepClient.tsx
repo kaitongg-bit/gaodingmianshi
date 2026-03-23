@@ -47,25 +47,27 @@ export function PrepClient() {
   const [loadingGen, setLoadingGen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [thinkingStep, setThinkingStep] = useState(0);
-  const [newSessionBusy, setNewSessionBusy] = useState(false);
+  const [addRoundBusy, setAddRoundBusy] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const handleNewSession = useCallback(async () => {
-    setNewSessionBusy(true);
+  const handleAddRound = useCallback(async () => {
+    if (!projectId) return;
+    if (roundsCount >= 5) return;
+    const next = roundsCount + 1;
+    setAddRoundBusy(true);
     try {
-      const r = await fetch("/api/projects", {
-        method: "POST",
+      const res = await fetch(`/api/projects/${projectId}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: "{}",
+        body: JSON.stringify({ rounds_count: next }),
       });
-      const j = (await r.json()) as { id?: string };
-      if (r.ok && j.id) {
-        router.push(`/prep?project=${j.id}`);
+      if (res.ok) {
+        setRoundsCount(next);
       }
     } finally {
-      setNewSessionBusy(false);
+      setAddRoundBusy(false);
     }
-  }, [router]);
+  }, [projectId, roundsCount]);
 
   useEffect(() => {
     let cancelled = false;
@@ -246,6 +248,19 @@ export function PrepClient() {
         }),
       });
 
+      let existingQuestionTitles: string[] = [];
+      try {
+        const wr = await fetch(`/api/projects/${projectId}/workspace`);
+        const wj = (await wr.json()) as { questions?: { title?: string }[] };
+        if (wr.ok && Array.isArray(wj.questions)) {
+          existingQuestionTitles = wj.questions
+            .map((q) => (q.title ?? "").trim())
+            .filter(Boolean);
+        }
+      } catch {
+        /* 无已有题目时忽略 */
+      }
+
       const res = await fetch("/api/ai/questions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -255,6 +270,7 @@ export function PrepClient() {
           locale,
           rounds: roundsCount,
           analysis,
+          existingQuestionTitles,
         }),
       });
       const json = (await res.json()) as {
@@ -276,12 +292,22 @@ export function PrepClient() {
           questions: json.questions.map((q) => ({ title: q.title, round: q.round })),
         }),
       });
-      const putJ = (await put.json()) as { questions?: unknown[]; error?: string };
+      const putJ = (await put.json()) as {
+        questions?: unknown[];
+        totalCount?: number;
+        error?: string;
+      };
       if (!put.ok) {
         setError(putJ.error ?? "save_questions_failed");
         return;
       }
-      setQuestionCount(Array.isArray(putJ.questions) ? putJ.questions.length : json.questions.length);
+      setQuestionCount(
+        typeof putJ.totalCount === "number"
+          ? putJ.totalCount
+          : Array.isArray(putJ.questions)
+            ? putJ.questions.length
+            : json.questions.length,
+      );
       router.push(`/workspace?project=${projectId}`);
     } catch {
       setError("network");
@@ -301,8 +327,8 @@ export function PrepClient() {
           activeStep="prep"
           roundsCount={roundsCount}
           prepProjectId={projectId ?? undefined}
-          onNewSession={handleNewSession}
-          newSessionBusy={newSessionBusy}
+          onAddRound={projectId ? handleAddRound : undefined}
+          addRoundBusy={addRoundBusy}
         />
         <div className="flex min-h-[50vh] items-center justify-center px-4 pt-24 text-sm text-[var(--on-surface-variant)]">
           {loadError ?? "…"}
@@ -319,8 +345,8 @@ export function PrepClient() {
         roundsCount={roundsCount}
         onRoundSelect={canJumpToWorkspaceRounds ? onRoundFromPrep : undefined}
         prepProjectId={projectId}
-        onNewSession={handleNewSession}
-        newSessionBusy={newSessionBusy}
+        onAddRound={projectId ? handleAddRound : undefined}
+        addRoundBusy={addRoundBusy}
       />
       <main id="main" className="mx-auto max-w-screen-2xl px-4 pb-16 pt-24 md:px-8">
         {loadError ? (

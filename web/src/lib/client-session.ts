@@ -38,6 +38,8 @@ export type WorkspaceQuestion = {
   id: string;
   round: number;
   title: string;
+  /** ai | user，用于展示或后续逻辑 */
+  source?: "ai" | "user";
   imagePreview?: string;
 };
 

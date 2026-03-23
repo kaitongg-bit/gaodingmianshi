@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
+import { AutoGrowTextarea } from "@/components/AutoGrowTextarea";
 import { DraftNav } from "@/components/DraftNav";
 import { MarkdownBody } from "@/components/MarkdownBody";
 import { MaterialIcon } from "@/components/MaterialIcon";
@@ -41,7 +42,7 @@ export function WorkspaceClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const projectQuery = searchParams.get("project") ?? "";
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const draftFileInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const [session, setSession] = useState<WorkspaceSession | null>(null);
@@ -60,7 +61,40 @@ export function WorkspaceClient() {
   const [error, setError] = useState<string | null>(null);
   const [loadingChat, setLoadingChat] = useState(false);
   const [addingDraft, setAddingDraft] = useState(false);
-  const [newSessionBusy, setNewSessionBusy] = useState(false);
+  const [addRoundBusy, setAddRoundBusy] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editRound, setEditRound] = useState(1);
+  const [rowBusy, setRowBusy] = useState<string | null>(null);
+  /** false = 本题逐字稿区块收起；缺省为展开 */
+  const [scriptSectionExpanded, setScriptSectionExpanded] = useState<Record<string, boolean>>({});
+  const [transcriptPanelOpen, setTranscriptPanelOpen] = useState(true);
+  const [addQuestionModalOpen, setAddQuestionModalOpen] = useState(false);
+
+  const reloadQuestionsOnly = useCallback(async () => {
+    if (!projectQuery || !UUID_RE.test(projectQuery)) return;
+    const r = await fetch(`/api/projects/${projectQuery}/workspace`);
+    const j = (await r.json()) as {
+      project?: { resume_text: string; jd_text: string; rounds_count: number; analysis_jsonb: unknown };
+      questions?: WorkspaceQuestion[];
+      error?: string;
+    };
+    if (!r.ok || !j.questions?.length) return;
+    const qs = j.questions.map((q) => ({ ...q }));
+    setQuestions(qs);
+    setSession((prev) =>
+      prev && j.project
+        ? {
+            ...prev,
+            resume: j.project.resume_text,
+            jd: j.project.jd_text,
+            roundsCount: j.project.rounds_count,
+            analysis: (j.project.analysis_jsonb ?? null) as AnalysisPayload | null,
+            questions: qs,
+          }
+        : prev,
+    );
+  }, [projectQuery]);
 
   const onRoundSelect = useCallback(
     (r: number) => {
@@ -71,22 +105,35 @@ export function WorkspaceClient() {
     [questions],
   );
 
-  const handleNewSession = useCallback(async () => {
-    setNewSessionBusy(true);
+  const handleAddRound = useCallback(async () => {
+    if (!projectQuery || !session) return;
+    if (session.roundsCount >= 5) return;
+    const next = session.roundsCount + 1;
+    setAddRoundBusy(true);
+    setError(null);
     try {
-      const r = await fetch("/api/projects", {
-        method: "POST",
+      const res = await fetch(`/api/projects/${projectQuery}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: "{}",
+        body: JSON.stringify({
+          rounds_count: next,
+          active_round: next,
+          transcript_text: serializeScriptsToTranscript(scriptById),
+        }),
       });
-      const j = (await r.json()) as { id?: string };
-      if (r.ok && j.id) {
-        router.push(`/prep?project=${j.id}`);
+      if (!res.ok) {
+        setError(t("addRoundFailed"));
+        return;
       }
+      setSession((s) => (s ? { ...s, roundsCount: next } : null));
+      setActiveRound(next);
+      setSelectedId(null);
+    } catch {
+      setError("network");
     } finally {
-      setNewSessionBusy(false);
+      setAddRoundBusy(false);
     }
-  }, [router]);
+  }, [projectQuery, session, scriptById, t]);
 
   useEffect(() => {
     if (!projectQuery || !UUID_RE.test(projectQuery)) {
@@ -188,9 +235,169 @@ export function WorkspaceClient() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [chatById, selectedId, loadingChat]);
 
+  useEffect(() => {
+    if (!selectedId) return;
+    setScriptSectionExpanded((s) => {
+      if (s[selectedId] === false) {
+        const next = { ...s };
+        delete next[selectedId];
+        return next;
+      }
+      return s;
+    });
+    setTranscriptPanelOpen(true);
+  }, [selectedId]);
+
   const filteredQuestions = useMemo(
     () => questions.filter((q) => q.round === activeRound),
     [questions, activeRound],
+  );
+
+  const openEdit = useCallback((q: WorkspaceQuestion) => {
+    setEditingId(q.id);
+    setEditTitle(q.title);
+    setEditRound(q.round);
+  }, []);
+
+  const cancelEdit = useCallback(() => {
+    setEditingId(null);
+    setEditTitle("");
+    setEditRound(1);
+  }, []);
+
+  const saveEdit = useCallback(async () => {
+    if (!editingId || !projectQuery) return;
+    const title = editTitle.trim();
+    if (!title) {
+      setError(t("titleRequired"));
+      return;
+    }
+    setRowBusy(editingId);
+    setError(null);
+    try {
+      const res = await fetch(`/api/projects/${projectQuery}/questions/${editingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, round: editRound }),
+      });
+      const j = (await res.json()) as { question?: WorkspaceQuestion; error?: string };
+      if (!res.ok) {
+        setError(j.error ?? "save_failed");
+        return;
+      }
+      if (j.question) {
+        setQuestions((prev) =>
+          prev.map((x) =>
+            x.id === j.question!.id
+              ? {
+                  ...x,
+                  title: j.question!.title,
+                  round: j.question!.round,
+                  source: j.question!.source ?? x.source,
+                  imagePreview: j.question!.imagePreview ?? x.imagePreview,
+                }
+              : x,
+          ),
+        );
+        if (j.question.round !== activeRound && selectedId === j.question.id) {
+          setActiveRound(j.question.round);
+        }
+      }
+      cancelEdit();
+    } catch {
+      setError("network");
+    } finally {
+      setRowBusy(null);
+    }
+  }, [
+    editingId,
+    projectQuery,
+    editTitle,
+    editRound,
+    activeRound,
+    selectedId,
+    cancelEdit,
+    t,
+  ]);
+
+  const deleteQuestion = useCallback(
+    async (q: WorkspaceQuestion) => {
+      if (!projectQuery) return;
+      if (typeof window !== "undefined" && !window.confirm(t("deleteQuestionConfirm"))) return;
+      setRowBusy(q.id);
+      setError(null);
+      try {
+        const res = await fetch(`/api/projects/${projectQuery}/questions/${q.id}`, {
+          method: "DELETE",
+        });
+        if (!res.ok) {
+          const j = (await res.json()) as { error?: string };
+          setError(j.error ?? "delete_failed");
+          return;
+        }
+        const remaining = questions.filter((x) => x.id !== q.id);
+        setQuestions(remaining);
+        setChatById((c) => {
+          const next = { ...c };
+          delete next[q.id];
+          return next;
+        });
+        setScriptById((s) => {
+          const next = { ...s };
+          delete next[q.id];
+          return next;
+        });
+        if (editingId === q.id) cancelEdit();
+        if (selectedId === q.id) {
+          const sameRound = remaining.filter((x) => x.round === activeRound);
+          const pick = sameRound[0] ?? remaining[0] ?? null;
+          setSelectedId(pick?.id ?? null);
+        }
+        if (remaining.length === 0) {
+          router.replace(`/prep?project=${projectQuery}`);
+        }
+      } catch {
+        setError("network");
+      } finally {
+        setRowBusy(null);
+      }
+    },
+    [
+      projectQuery,
+      questions,
+      activeRound,
+      selectedId,
+      editingId,
+      cancelEdit,
+      router,
+      t,
+    ],
+  );
+
+  const moveQuestion = useCallback(
+    async (q: WorkspaceQuestion, dir: "up" | "down") => {
+      if (!projectQuery) return;
+      setRowBusy(q.id);
+      setError(null);
+      try {
+        const res = await fetch(`/api/projects/${projectQuery}/questions/${q.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ move: dir }),
+        });
+        if (!res.ok) {
+          const j = (await res.json()) as { error?: string };
+          setError(j.error ?? "move_failed");
+          return;
+        }
+        await reloadQuestionsOnly();
+      } catch {
+        setError("network");
+      } finally {
+        setRowBusy(null);
+      }
+    },
+    [projectQuery, reloadQuestionsOnly],
   );
 
   const selectedQ = useMemo(
@@ -303,6 +510,60 @@ export function WorkspaceClient() {
     }
   }, [selectedQ, chatInput, chatById, locale, session, t]);
 
+  const closeAddQuestionModal = useCallback(() => {
+    setAddQuestionModalOpen(false);
+    setDraftText("");
+    setDraftAttachment(null);
+    if (draftFileInputRef.current) draftFileInputRef.current.value = "";
+  }, []);
+
+  const onModalPaste = useCallback(
+    (e: React.ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items?.length) return;
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i];
+        if (it?.kind === "file" && it.type.startsWith("image/")) {
+          e.preventDefault();
+          const f = it.getAsFile();
+          if (!f) break;
+          if (f.size > MAX_IMAGE_BYTES) {
+            setError(t("fileTooLarge"));
+            break;
+          }
+          const reader = new FileReader();
+          reader.onload = () => {
+            const dataUrl = typeof reader.result === "string" ? reader.result : "";
+            if (dataUrl) {
+              setDraftAttachment({ dataUrl, name: f.name || "clipboard.png" });
+              setError(null);
+            }
+          };
+          reader.readAsDataURL(f);
+          break;
+        }
+      }
+    },
+    [t],
+  );
+
+  useEffect(() => {
+    if (!addQuestionModalOpen) return;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [addQuestionModalOpen]);
+
+  useEffect(() => {
+    if (!addQuestionModalOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") closeAddQuestionModal();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [addQuestionModalOpen, closeAddQuestionModal]);
+
   const exportMarkdown = useCallback(() => {
     const pending = t("scriptPending");
     const lines = questions.map((q, i) => {
@@ -355,19 +616,18 @@ export function WorkspaceClient() {
           id: q.id,
           round: q.round,
           title: q.title,
+          source: "user" as const,
           imagePreview: q.imagePreview,
         },
       ]);
       setSelectedId(q.id);
-      setDraftText("");
-      setDraftAttachment(null);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      closeAddQuestionModal();
     } catch {
       setError("network");
     } finally {
       setAddingDraft(false);
     }
-  }, [draftText, draftAttachment, activeRound, projectQuery, t]);
+  }, [draftText, draftAttachment, activeRound, projectQuery, t, closeAddQuestionModal]);
 
   const onDraftFile = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -410,11 +670,32 @@ export function WorkspaceClient() {
     setDraftText((prev) => (prev ? `${prev}\n\n${url.trim()}` : url.trim()));
   }, [t]);
 
-  const scriptedBlocks = useMemo(() => {
-    return questions
-      .map((q) => ({ q, body: scriptById[q.id]?.trim() ?? "" }))
-      .filter((x) => x.body.length > 0);
-  }, [questions, scriptById]);
+  const transcriptSections = useMemo(
+    () => questions.map((q) => ({ q, body: scriptById[q.id] ?? "" })),
+    [questions, scriptById],
+  );
+
+  /** 当前选中题置顶；右栏与左、中共用视口高度，仅各栏各一层纵向滚动 */
+  const orderedTranscriptSections = useMemo(() => {
+    if (!selectedId) return transcriptSections;
+    const idx = transcriptSections.findIndex((x) => x.q.id === selectedId);
+    if (idx <= 0) return transcriptSections;
+    const chosen = transcriptSections[idx];
+    const rest = transcriptSections.filter((_, i) => i !== idx);
+    return [chosen, ...rest];
+  }, [transcriptSections, selectedId]);
+
+  const toggleScriptSection = useCallback((qid: string) => {
+    setScriptSectionExpanded((s) => {
+      const collapsed = s[qid] === false;
+      if (collapsed) {
+        const next = { ...s };
+        delete next[qid];
+        return next;
+      }
+      return { ...s, [qid]: false };
+    });
+  }, []);
 
   if (!session) {
     return (
@@ -425,6 +706,7 @@ export function WorkspaceClient() {
   }
 
   return (
+    <>
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-[var(--background)]">
       <DraftNav
         variant="app"
@@ -432,11 +714,11 @@ export function WorkspaceClient() {
         roundsCount={roundsCount}
         onRoundSelect={onRoundSelect}
         prepProjectId={projectQuery}
-        onNewSession={handleNewSession}
-        newSessionBusy={newSessionBusy}
+        onAddRound={handleAddRound}
+        addRoundBusy={addRoundBusy}
       />
 
-      <div className="flex min-h-0 flex-1 flex-col pt-14 md:pt-16">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden pt-14 md:pt-16">
         {error && (
           <div className="shrink-0 border-b border-amber-200/50 bg-amber-50 px-4 py-2 text-center text-xs text-amber-950 md:px-8">
             {error}
@@ -449,132 +731,171 @@ export function WorkspaceClient() {
 
         <main
           id="main"
-          className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 flex-col gap-0 overflow-hidden px-4 pb-3 md:flex-row md:px-8 md:pb-4"
+          className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 flex-col gap-0 overflow-y-auto px-4 pb-3 md:flex-row md:overflow-hidden md:px-8 md:pb-4"
         >
-          <section className="flex min-h-0 w-full min-w-0 flex-col overflow-hidden bg-[var(--surface-container-low)] p-4 md:p-6 lg:flex-[0_0_26%]">
-            <div className="shrink-0">
-              <h2 className="font-headline mb-4 text-xl font-medium text-[var(--on-surface)] md:text-2xl">
+          <section className="flex w-full shrink-0 flex-col border-b border-[var(--outline-variant)]/10 bg-[var(--surface-container-low)] p-4 md:min-h-0 md:w-[min(22rem,100%)] md:max-w-sm md:shrink-0 md:flex-col md:overflow-hidden md:border-b-0 md:border-r md:p-6">
+            <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
+              <h2 className="font-headline text-xl font-medium text-[var(--on-surface)] md:text-2xl">
                 {t("questionList")}
               </h2>
-              <label className="text-xs font-semibold uppercase tracking-wider text-[var(--on-surface-variant)]">
-                {t("draftQuestion")}
-              </label>
-              <div className="group relative mt-2">
-                <textarea
-                  value={draftText}
-                  onChange={(e) => setDraftText(e.target.value)}
-                  placeholder={t("draftPlaceholder")}
-                  rows={4}
-                  className="relative z-[1] min-h-[6.5rem] w-full resize-none rounded-lg border-0 bg-[var(--surface-container-lowest)] p-4 pb-12 text-sm text-[var(--on-surface)] ring-1 ring-transparent placeholder:text-[var(--outline-variant)] focus:outline-none focus:ring-[var(--primary)]"
-                />
-                <div
-                  className="pointer-events-none absolute inset-0 z-0 rounded-lg border-2 border-dashed border-[var(--outline-variant)]/30 group-focus-within:opacity-0"
-                  aria-hidden
-                />
-                <div className="absolute bottom-3 right-3 z-[2] flex gap-2">
-                  <button
-                    type="button"
-                    title={t("uploadTitle")}
-                    onClick={() => fileInputRef.current?.click()}
-                    className="pointer-events-auto rounded-md bg-[var(--surface-container-low)] p-1.5 text-[var(--on-surface-variant)] transition hover:text-[var(--primary)]"
-                  >
-                    <MaterialIcon name="upload_file" className="!text-base" />
-                  </button>
-                  <button
-                    type="button"
-                    title={t("linkTitle")}
-                    onClick={pasteLink}
-                    className="pointer-events-auto rounded-md bg-[var(--surface-container-low)] p-1.5 text-[var(--on-surface-variant)] transition hover:text-[var(--primary)]"
-                  >
-                    <MaterialIcon name="link" className="!text-base" />
-                  </button>
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*,.txt,text/plain"
-                  className="hidden"
-                  onChange={onDraftFile}
-                />
-              </div>
-              {draftAttachment && (
-                <div className="mt-2 flex items-center gap-2 rounded-lg border border-[var(--outline-variant)]/20 bg-[var(--surface-container-lowest)] p-2">
-                  <Image
-                    src={draftAttachment.dataUrl}
-                    alt=""
-                    width={48}
-                    height={48}
-                    unoptimized
-                    className="h-12 w-12 rounded object-cover"
-                  />
-                  <span className="min-w-0 flex-1 truncate text-xs text-[var(--on-surface-variant)]">
-                    {draftAttachment.name}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDraftAttachment(null);
-                      if (fileInputRef.current) fileInputRef.current.value = "";
-                    }}
-                    className="text-xs text-[var(--primary)]"
-                  >
-                    {t("removeAttachment")}
-                  </button>
-                </div>
-              )}
               <button
                 type="button"
-                onClick={() => void addDraftQuestion()}
-                disabled={(!draftText.trim() && !draftAttachment) || addingDraft}
-                className="mt-3 w-full rounded-lg bg-[var(--primary)] py-2.5 text-sm font-medium text-[var(--on-primary)] shadow-sm transition hover:opacity-95 active:scale-[0.99] disabled:opacity-40"
+                onClick={() => setAddQuestionModalOpen(true)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--primary)] text-[var(--on-primary)] shadow-sm transition hover:opacity-95"
+                title={t("addQuestionShort")}
+                aria-label={t("addQuestionShort")}
               >
-                {t("addToList")}
+                <MaterialIcon name="add" className="!text-2xl" />
               </button>
             </div>
 
-            <div className="mt-4 flex min-h-0 flex-1 flex-col">
+            <div className="flex min-h-0 flex-col overflow-hidden md:min-h-0 md:flex-1">
               <h3 className="mb-2 shrink-0 text-xs font-semibold uppercase tracking-wider text-[var(--on-surface-variant)]">
                 {t("generated")}
               </h3>
-              <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto pr-1">
+              <div className="min-h-0 pr-1 md:flex-1 md:overflow-y-auto md:scrollbar-thin">
                 <ul className="flex flex-col gap-2 pb-2">
-                  {filteredQuestions.map((q) => (
-                    <li key={q.id}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedId(q.id)}
-                        className={`flex w-full gap-3 rounded-lg p-3 text-left transition ${
+                  {filteredQuestions.map((q, idx) => {
+                    const busy = rowBusy === q.id;
+                    const canUp = idx > 0;
+                    const canDown = idx < filteredQuestions.length - 1;
+                    return (
+                      <li
+                        key={q.id}
+                        className={`overflow-hidden rounded-lg border border-transparent transition ${
                           selectedId === q.id
-                            ? "border-l-4 border-[var(--primary)] bg-[var(--surface-container-lowest)] shadow-sm"
-                            : "bg-[var(--surface-container)] hover:bg-[var(--surface-container-high)]"
+                            ? "border-[var(--primary)]/35 bg-[var(--surface-container-lowest)] shadow-sm"
+                            : "bg-[var(--surface-container)]"
                         }`}
                       >
-                        {q.imagePreview ? (
-                          <Image
-                            src={q.imagePreview}
-                            alt=""
-                            width={40}
-                            height={40}
-                            unoptimized
-                            className="h-10 w-10 shrink-0 rounded object-cover"
-                          />
-                        ) : null}
-                        <span className="line-clamp-4 whitespace-pre-wrap text-sm leading-snug text-[var(--on-surface)]">
-                          {q.title}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
+                        {editingId === q.id ? (
+                          <div className="space-y-2 p-3">
+                            <AutoGrowTextarea
+                              value={editTitle}
+                              onChange={(e) => setEditTitle(e.target.value)}
+                              className="min-h-24 w-full resize-none rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] p-2 text-sm text-[var(--on-surface)] outline-none focus:ring-1 focus:ring-[var(--primary)]/30"
+                            />
+                            <label className="flex items-center gap-2 text-xs text-[var(--on-surface-variant)]">
+                              <span className="shrink-0 font-medium">{t("editRoundLabel")}</span>
+                              <select
+                                value={editRound}
+                                onChange={(e) => setEditRound(Number(e.target.value))}
+                                className="rounded border border-[var(--outline-variant)]/40 bg-[var(--surface-container-lowest)] px-2 py-1 text-[var(--on-surface)]"
+                              >
+                                {Array.from({ length: roundsCount }, (_, i) => i + 1).map((r) => (
+                                  <option key={r} value={r}>
+                                    {r}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={() => void saveEdit()}
+                                className="rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-medium text-[var(--on-primary)] disabled:opacity-40"
+                              >
+                                {t("saveQuestion")}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={busy}
+                                onClick={cancelEdit}
+                                className="rounded-lg border border-[var(--outline-variant)]/40 px-3 py-1.5 text-xs text-[var(--on-surface)]"
+                              >
+                                {t("cancelEdit")}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedId(q.id)}
+                              className={`flex w-full gap-3 p-3 text-left transition hover:bg-[var(--surface-container-high)]/60 ${
+                                selectedId === q.id ? "" : ""
+                              }`}
+                            >
+                              {q.imagePreview ? (
+                                <Image
+                                  src={q.imagePreview}
+                                  alt=""
+                                  width={40}
+                                  height={40}
+                                  unoptimized
+                                  className="h-10 w-10 shrink-0 rounded object-cover"
+                                />
+                              ) : null}
+                              <span className="min-w-0 flex-1 whitespace-pre-wrap break-words text-sm leading-snug text-[var(--on-surface)]">
+                                {q.title}
+                              </span>
+                            </button>
+                            <div
+                              className="flex flex-wrap items-center gap-1 border-t border-[var(--outline-variant)]/10 px-2 py-1.5"
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                type="button"
+                                title={t("moveUp")}
+                                disabled={busy || !canUp}
+                                onClick={() => void moveQuestion(q, "up")}
+                                className="rounded p-1 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container-high)] hover:text-[var(--primary)] disabled:opacity-30"
+                              >
+                                <MaterialIcon name="keyboard_arrow_up" className="!text-lg" />
+                              </button>
+                              <button
+                                type="button"
+                                title={t("moveDown")}
+                                disabled={busy || !canDown}
+                                onClick={() => void moveQuestion(q, "down")}
+                                className="rounded p-1 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container-high)] hover:text-[var(--primary)] disabled:opacity-30"
+                              >
+                                <MaterialIcon name="keyboard_arrow_down" className="!text-lg" />
+                              </button>
+                              <button
+                                type="button"
+                                title={t("editQuestion")}
+                                disabled={busy}
+                                onClick={() => openEdit(q)}
+                                className="rounded p-1 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container-high)] hover:text-[var(--primary)] disabled:opacity-30"
+                              >
+                                <MaterialIcon name="edit" className="!text-lg" />
+                              </button>
+                              <button
+                                type="button"
+                                title={t("deleteQuestion")}
+                                disabled={busy}
+                                onClick={() => void deleteQuestion(q)}
+                                className="rounded p-1 text-[var(--on-surface-variant)] hover:bg-[var(--error)]/15 hover:text-[var(--error)] disabled:opacity-30"
+                              >
+                                <MaterialIcon name="delete" className="!text-lg" />
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
                 {filteredQuestions.length === 0 && (
                   <p className="py-4 text-sm text-[var(--on-surface-variant)]">{t("emptyRound")}</p>
                 )}
               </div>
+              <button
+                type="button"
+                onClick={() => setAddQuestionModalOpen(true)}
+                className="mt-3 flex w-full shrink-0 items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[var(--outline-variant)]/35 py-4 text-[var(--on-surface-variant)] transition hover:border-[var(--primary)]/45 hover:bg-[var(--surface-container-high)]/40 hover:text-[var(--primary)]"
+              >
+                <MaterialIcon name="add_circle" className="!text-xl" />
+                <span className="text-sm font-medium">{t("addQuestionShort")}</span>
+              </button>
             </div>
           </section>
 
-          <section className="mt-2 flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden border-[var(--outline-variant)]/10 bg-[var(--surface)] md:mt-0 md:border-x md:px-2">
-            <div className="flex min-h-0 flex-1 flex-col px-3 py-4 md:px-4">
+          <section className="mt-2 flex min-w-0 w-full flex-1 flex-col border-[var(--outline-variant)]/10 bg-[var(--surface)] md:mt-0 md:min-h-0 md:min-w-0 md:flex-[1_1_0] md:overflow-hidden md:border-x">
+            <div className="flex min-h-0 flex-1 flex-col px-3 py-4 md:min-h-0 md:px-4">
               <header className="mb-3 shrink-0">
                 <h2 className="font-headline text-xl font-medium text-[var(--on-surface)] md:text-2xl">
                   {t("iterateTitle")}
@@ -592,7 +913,7 @@ export function WorkspaceClient() {
                 ) : null}
               </header>
 
-              <div className="scrollbar-thin min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+              <div className="space-y-3 pr-1 md:min-h-0 md:flex-1 md:overflow-y-auto md:scrollbar-thin">
                 {!selectedQ && (
                   <p className="text-sm text-[var(--on-surface-variant)]">{t("selectQuestion")}</p>
                 )}
@@ -662,43 +983,223 @@ export function WorkspaceClient() {
             </div>
           </section>
 
-          <aside className="mt-2 flex min-h-0 min-w-0 flex-col overflow-hidden bg-[var(--surface-container-low)] p-4 md:mt-0 md:p-6 lg:flex-[0_0_32%]">
-            <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
-              <h2 className="font-headline text-xl font-medium text-[var(--on-surface)] md:text-2xl">
-                {t("transcriptTitle")}
-              </h2>
-              <button
-                type="button"
-                onClick={exportMarkdown}
-                className="shrink-0 text-xs font-medium text-[var(--primary)] hover:underline"
-              >
-                {t("exportMd")}
-              </button>
-            </div>
-            <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto rounded-xl border border-[var(--outline-variant)]/10 bg-[var(--surface-container-lowest)] p-4">
-              {scriptedBlocks.length === 0 ? (
-                <p className="text-xs leading-relaxed text-[var(--on-surface-variant)]">
-                  {t("placeholderScript")}
-                </p>
-              ) : (
-                <div className="space-y-6">
-                  {scriptedBlocks.map(({ q, body }) => (
-                    <article
-                      key={q.id}
-                      className="border-b border-[var(--outline-variant)]/15 pb-5 last:border-b-0 last:pb-0"
+          <aside
+            className={`mt-2 flex shrink-0 flex-col bg-[var(--surface-container-low)] transition-[flex-basis] duration-200 md:mt-0 ${
+              transcriptPanelOpen
+                ? "min-h-0 min-w-0 overflow-hidden p-4 md:min-h-0 md:flex-[1.08_1_0] md:overflow-hidden md:p-6"
+                : "min-h-0 min-w-0 overflow-hidden p-2 md:p-6 lg:flex-[0_0_2.75rem] lg:px-1"
+            }`}
+          >
+            {transcriptPanelOpen ? (
+              <>
+                <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
+                  <h2 className="font-headline min-w-0 flex-1 truncate text-lg font-medium text-[var(--on-surface)] md:text-xl lg:text-2xl">
+                    {t("transcriptTitle")}
+                  </h2>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={exportMarkdown}
+                      className="rounded-lg p-2 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container-high)] hover:text-[var(--primary)]"
+                      title={t("exportMd")}
                     >
-                      <h3 className="font-headline mb-2 text-sm font-semibold leading-snug text-[var(--on-surface)]">
-                        {q.title}
-                      </h3>
-                      <MarkdownBody content={body} className="text-xs md:text-sm" />
-                    </article>
-                  ))}
+                      <MaterialIcon name="download" className="!text-xl" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTranscriptPanelOpen(false)}
+                      className="rounded-lg p-2 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container-high)] hover:text-[var(--primary)]"
+                      title={t("transcriptHidePanel")}
+                    >
+                      <MaterialIcon name="chevron_right" className="!text-xl" />
+                    </button>
+                  </div>
                 </div>
-              )}
-            </div>
+                <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-[var(--outline-variant)]/10 bg-[var(--surface-container-lowest)] p-3 scrollbar-thin md:p-4">
+                  {orderedTranscriptSections.length === 0 ? (
+                    <p className="text-xs leading-relaxed text-[var(--on-surface-variant)]">
+                      {t("placeholderScript")}
+                    </p>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      {orderedTranscriptSections.map(({ q, body }) => {
+                        const expanded = scriptSectionExpanded[q.id] !== false;
+                        const isSel = selectedId === q.id;
+                        return (
+                          <article
+                            key={q.id}
+                            id={`script-block-${q.id}`}
+                            className={`scroll-mt-3 overflow-hidden rounded-lg border transition-shadow ${
+                              isSel
+                                ? "border-[var(--primary)]/40 shadow-[0_0_0_1px_var(--primary)]/20"
+                                : "border-[var(--outline-variant)]/15"
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              className="flex w-full items-start gap-2 bg-[var(--surface-container-low)]/90 px-3 py-2.5 text-left transition hover:bg-[var(--surface-container-high)]/80"
+                              aria-expanded={expanded}
+                              title={t("transcriptSectionToggle")}
+                              onClick={() => toggleScriptSection(q.id)}
+                            >
+                              <MaterialIcon
+                                name={expanded ? "expand_less" : "expand_more"}
+                                className="mt-0.5 shrink-0 text-[var(--on-surface-variant)]"
+                              />
+                              <h3 className="font-headline text-sm font-semibold leading-snug text-[var(--on-surface)]">
+                                {q.title}
+                              </h3>
+                            </button>
+                            {expanded ? (
+                              <div className="border-t border-[var(--outline-variant)]/10 p-3">
+                                <AutoGrowTextarea
+                                  value={body}
+                                  onChange={(e) =>
+                                    setScriptById((prev) => ({
+                                      ...prev,
+                                      [q.id]: e.target.value,
+                                    }))
+                                  }
+                                  placeholder={t("scriptTextareaPlaceholder")}
+                                  className="min-h-[7.5rem] w-full resize-none rounded-md border border-[var(--outline-variant)]/25 bg-[var(--surface)] p-3 text-sm leading-relaxed text-[var(--on-surface)] outline-none focus:ring-1 focus:ring-[var(--primary)]/25"
+                                />
+                              </div>
+                            ) : null}
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="flex min-h-0 flex-1 flex-col items-stretch justify-start gap-3 lg:items-center">
+                <button
+                  type="button"
+                  onClick={() => setTranscriptPanelOpen(true)}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg border border-[var(--outline-variant)]/25 bg-[var(--surface-container-lowest)] py-3 text-sm font-medium text-[var(--primary)] lg:flex-col lg:py-2 lg:text-xs"
+                  title={t("transcriptShowPanel")}
+                >
+                  <MaterialIcon name="chevron_left" className="!text-xl lg:!text-2xl" />
+                  <span className="lg:hidden">{t("transcriptShowPanel")}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={exportMarkdown}
+                  className="hidden rounded-lg p-2 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container-high)] hover:text-[var(--primary)] lg:block"
+                  title={t("exportMd")}
+                >
+                  <MaterialIcon name="download" className="!text-xl" />
+                </button>
+              </div>
+            )}
           </aside>
         </main>
       </div>
     </div>
+
+    {addQuestionModalOpen ? (
+      <div
+        className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-question-modal-title"
+        onClick={() => closeAddQuestionModal()}
+      >
+        <div
+          className="flex max-h-[92dvh] w-full max-w-lg flex-col rounded-t-2xl border border-[var(--outline-variant)]/20 bg-[var(--surface)] shadow-xl sm:rounded-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-start justify-between gap-3 border-b border-[var(--outline-variant)]/15 px-4 py-3">
+            <h2
+              id="add-question-modal-title"
+              className="font-headline text-lg font-semibold text-[var(--on-surface)]"
+            >
+              {t("addQuestionModalTitle")}
+            </h2>
+            <button
+              type="button"
+              onClick={closeAddQuestionModal}
+              className="rounded-lg p-2 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container-high)]"
+              aria-label={t("addQuestionClose")}
+            >
+              <MaterialIcon name="close" className="!text-xl" />
+            </button>
+          </div>
+          <div className="space-y-3 overflow-y-auto p-4">
+            <p className="text-xs leading-relaxed text-[var(--on-surface-variant)]">
+              {t("addQuestionFormatHint")}
+            </p>
+            <AutoGrowTextarea
+              value={draftText}
+              onChange={(e) => setDraftText(e.target.value)}
+              onPaste={onModalPaste}
+              placeholder={t("draftPlaceholder")}
+              maxHeightPx={200}
+              className="min-h-11 w-full resize-none rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] px-3 py-2.5 text-sm leading-relaxed text-[var(--on-surface)] outline-none focus:ring-1 focus:ring-[var(--primary)]/30"
+            />
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => draftFileInputRef.current?.click()}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--outline-variant)]/35 bg-[var(--surface-container-low)] px-3 py-2 text-xs font-medium text-[var(--on-surface)] hover:border-[var(--primary)]/40"
+              >
+                <MaterialIcon name="upload_file" className="!text-base" />
+                {t("uploadTitle")}
+              </button>
+              <button
+                type="button"
+                onClick={pasteLink}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--outline-variant)]/35 bg-[var(--surface-container-low)] px-3 py-2 text-xs font-medium text-[var(--on-surface)] hover:border-[var(--primary)]/40"
+              >
+                <MaterialIcon name="link" className="!text-base" />
+                {t("linkTitle")}
+              </button>
+            </div>
+            <input
+              ref={draftFileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif,.txt,text/plain"
+              className="hidden"
+              onChange={onDraftFile}
+            />
+            {draftAttachment ? (
+              <div className="flex items-center gap-2 rounded-lg border border-[var(--outline-variant)]/20 bg-[var(--surface-container-lowest)] p-2">
+                <Image
+                  src={draftAttachment.dataUrl}
+                  alt=""
+                  width={56}
+                  height={56}
+                  unoptimized
+                  className="h-14 w-14 rounded object-cover"
+                />
+                <span className="min-w-0 flex-1 truncate text-xs text-[var(--on-surface-variant)]">
+                  {draftAttachment.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraftAttachment(null);
+                    if (draftFileInputRef.current) draftFileInputRef.current.value = "";
+                  }}
+                  className="text-xs font-medium text-[var(--primary)]"
+                >
+                  {t("removeAttachment")}
+                </button>
+              </div>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => void addDraftQuestion()}
+              disabled={(!draftText.trim() && !draftAttachment) || addingDraft}
+              className="w-full rounded-xl bg-[var(--primary)] py-3 text-sm font-medium text-[var(--on-primary)] transition hover:opacity-95 disabled:opacity-40"
+            >
+              {t("addToList")}
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null}
+    </>
   );
 }

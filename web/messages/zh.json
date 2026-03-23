@@ -14,7 +14,8 @@
     "credits": "积分 {n}",
     "prep": "0. 准备",
     "round": "第 {n} 轮",
-    "newSessionTab": "新建会话",
+    "addRoundTab": "新增一轮面试",
+    "addRoundTitle": "增加下一轮（最多 5 轮）；新轮次可先自拟题目。",
     "notifications": "通知"
   },
   "UserMenu": {
@@ -139,7 +140,7 @@
     "focusArea": "重点",
     "riskFactor": "风险",
     "confirmCta": "确认并生成面试轮次",
-    "confirmHint": "将基于当前材料生成多轮练习安排。",
+    "confirmHint": "会基于当前材料再生成一批题目并追加到列表，不会清空已有题目；可在工作台编辑、排序或删除。",
     "thinkingSteps": [
       "正在对照 JD 与简历…",
       "正在提炼考察主题…",
@@ -154,6 +155,10 @@
   "Workspace": {
     "questionList": "问题列表",
     "draftQuestion": "自拟题目",
+    "addQuestionShort": "添加题目",
+    "addQuestionModalTitle": "添加自拟题目",
+    "addQuestionFormatHint": "支持 PNG、JPG、WebP、GIF；可在下方输入框聚焦后从剪贴板粘贴截图。",
+    "addQuestionClose": "关闭",
     "draftPlaceholder": "输入或粘贴自定义问题…",
     "addToList": "加入列表",
     "generated": "已生成问题",
@@ -162,6 +167,10 @@
     "chatPlaceholder": "请 AI 帮你打磨回答…",
     "send": "发送",
     "transcriptTitle": "终稿逐字稿",
+    "transcriptHidePanel": "收起终稿栏",
+    "transcriptShowPanel": "展开终稿栏",
+    "transcriptSectionToggle": "展开或收起本题逐字稿",
+    "scriptTextareaPlaceholder": "在此直接编辑逐字稿，支持 Markdown；左侧选题时会自动滚到本题。",
     "export": "导出",
     "exportMd": "Markdown (.md)",
     "apiKeyMissing": "缺少 GEMINI_API_KEY — 见 /api/ai/health",
@@ -188,6 +197,16 @@
     "removeAttachment": "移除",
     "questionFromAttachment": "来自文件：{name}",
     "fileTooLarge": "图片需小于 2 MB。",
-    "fileTypeUnsupported": "请使用图片或 .txt 文本文件。"
+    "fileTypeUnsupported": "请使用图片或 .txt 文本文件。",
+    "editQuestion": "编辑",
+    "saveQuestion": "保存",
+    "cancelEdit": "取消",
+    "deleteQuestion": "删除",
+    "moveUp": "上移",
+    "moveDown": "下移",
+    "deleteQuestionConfirm": "确定删除这道题？相关对话记录也会一并删除。",
+    "editRoundLabel": "轮次",
+    "titleRequired": "题目文字不能为空。",
+    "addRoundFailed": "无法增加面试轮次，请稍后重试。"
   }
 }

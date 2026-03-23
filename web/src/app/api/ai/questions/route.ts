@@ -12,6 +12,8 @@ export async function POST(req: Request) {
       rounds?: number;
       extraHint?: string;
       analysis?: unknown;
+      /** 已有题干，生成时需避免重复或仅改写的同义题 */
+      existingQuestionTitles?: unknown;
     };
     const resume = (body.resume ?? "").trim();
     const jd = (body.jd ?? "").trim();
@@ -22,6 +24,20 @@ export async function POST(req: Request) {
       body.analysis !== undefined
         ? JSON.stringify(body.analysis, null, 2)
         : "";
+
+    const existingTitles = Array.isArray(body.existingQuestionTitles)
+      ? body.existingQuestionTitles
+          .map((s) => String(s).trim())
+          .filter(Boolean)
+          .slice(0, 120)
+      : [];
+
+    const normalizeTitle = (s: string) =>
+      s
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .replace(/[，。！？、；：""''（）\s]+$/g, "")
+        .trim();
 
     if (!resume || !jd) {
       return NextResponse.json(
@@ -45,13 +61,25 @@ export async function POST(req: Request) {
         ? "Write each question title in natural English."
         : "每个问题的 title 用自然中文书写。";
 
+    const avoidBlock =
+      existingTitles.length > 0
+        ? [
+            "The candidate ALREADY has these practice question titles in their project.",
+            "You MUST NOT repeat them, nor produce near-duplicates (same intent with minor wording changes).",
+            "Each of the 20 new titles must cover a clearly different angle, scenario, or probe.",
+            "Existing titles:",
+            ...existingTitles.map((t, i) => `${i + 1}. ${t}`),
+            "",
+          ].join("\n")
+        : "";
+
     const prompt = `${buildQuestionRoundPlan(rounds)}
 
 ${buildQuestionStyleBlock(rounds)}
 
 ${lang}
 
---- RESUME ---
+${avoidBlock ? `${avoidBlock}\n` : ""}--- RESUME ---
 ${resume}
 
 --- JD ---
@@ -67,14 +95,24 @@ ${extra ? `--- USER EXTRA HINT ---\n${extra}\n` : ""}
       questions?: { round?: number; title?: string }[];
     };
     const raw = parsed.questions ?? [];
-    const questions = raw
-      .filter((q) => q.title?.trim())
-      .slice(0, 20)
-      .map((q, i) => ({
-        id: `q-${i + 1}`,
+    const existingNorm = new Set(existingTitles.map((t) => normalizeTitle(t)));
+    const seenNew = new Set<string>();
+    const questions: { id: string; round: number; title: string }[] = [];
+
+    for (const q of raw) {
+      const title = String(q.title ?? "").trim();
+      if (!title) continue;
+      const norm = normalizeTitle(title);
+      if (!norm) continue;
+      if (existingNorm.has(norm) || seenNew.has(norm)) continue;
+      seenNew.add(norm);
+      questions.push({
+        id: `q-${questions.length + 1}`,
         round: Math.min(rounds, Math.max(1, Number(q.round) || 1)),
-        title: String(q.title).trim(),
-      }));
+        title,
+      });
+      if (questions.length >= 20) break;
+    }
 
     if (questions.length === 0) {
       return NextResponse.json(
