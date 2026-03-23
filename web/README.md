@@ -4,6 +4,16 @@ Next.js 16 + App Router + `next-intl`（`zh` / `en`）+ 服务端 **Google Gemin
 
 ## 本地运行
 
+仓库根目录已配置 npm workspace，可在**根目录**安装依赖并启动（与 Vercel 一致）：
+
+```bash
+# 在仓库根目录 gaodingmianshi/
+npm install
+npm run dev
+```
+
+或仍在 `web/` 下单独开发：
+
 ```bash
 cd web
 cp .env.example .env
@@ -18,6 +28,8 @@ npm run dev
 - 工作台：`http://localhost:3000/zh/app`
 
 未配置 `GEMINI_API_KEY` 时，分析 / 生成题目 / 对话接口会返回 503。`.env` 与 `.env.local` 均可；**改环境变量后需重启** `npm run dev`。
+
+若本地 `next dev` 出现 Turbopack 崩溃（终端里 Rust panic），当前 `package.json` 已默认使用 **`next dev --webpack`**；也可手动删掉 `.next` 后重试。
 
 若在界面仍提示缺 Key：
 

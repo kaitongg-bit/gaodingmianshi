@@ -1112,7 +1112,7 @@ export function WorkspaceClient() {
 
   return (
     <>
-    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--background)]">
+    <div className="flex h-[100dvh] max-h-[100dvh] w-full min-h-0 flex-col overflow-hidden bg-[var(--background)]">
       <DraftNav
         variant="app"
         activeStep={activeRound}
@@ -1138,9 +1138,9 @@ export function WorkspaceClient() {
 
         <main
           id="main"
-          className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 flex-col gap-0 overflow-y-auto px-4 pb-3 md:flex-row md:overflow-hidden md:px-8 md:pb-4"
+          className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 flex-col gap-0 overflow-hidden px-4 pb-3 md:h-full md:min-h-0 md:flex-row md:px-8 md:pb-4"
         >
-          <section className="flex w-full shrink-0 flex-col border-b border-[var(--outline-variant)]/10 bg-[var(--surface-container-low)] p-4 md:min-h-0 md:w-[min(22rem,100%)] md:max-w-sm md:shrink-0 md:flex-col md:overflow-hidden md:border-b-0 md:border-r md:p-6">
+          <section className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden border-b border-[var(--outline-variant)]/10 bg-[var(--surface-container-low)] p-4 md:w-[min(22rem,100%)] md:max-w-sm md:flex-none md:shrink-0 md:border-b-0 md:border-r md:p-6">
             <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
               <h2 className="font-headline text-xl font-medium text-[var(--on-surface)] md:text-2xl">
                 {t("questionList")}
@@ -1156,11 +1156,11 @@ export function WorkspaceClient() {
               </button>
             </div>
 
-            <div className="flex min-h-0 flex-col overflow-hidden md:min-h-0 md:flex-1">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <h3 className="mb-2 shrink-0 text-xs font-semibold uppercase tracking-wider text-[var(--on-surface-variant)]">
                 {t("generated")}
               </h3>
-              <div className="min-h-0 pr-1 md:flex-1 md:overflow-y-auto md:scrollbar-thin">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 scrollbar-thin">
                 <ul className="flex flex-col gap-2 pb-2">
                   {filteredQuestions.map((q, idx) => {
                     const busy = rowBusy === q.id;
@@ -1339,8 +1339,8 @@ export function WorkspaceClient() {
             </div>
           </section>
 
-          <section className="mt-2 flex min-w-0 w-full flex-1 flex-col border-[var(--outline-variant)]/10 bg-[var(--surface)] md:mt-0 md:min-h-0 md:min-w-0 md:flex-[1_1_0] md:overflow-hidden md:border-x">
-            <div className="flex min-h-0 flex-1 flex-col px-3 py-4 md:min-h-0 md:px-4">
+          <section className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden border-[var(--outline-variant)]/10 bg-[var(--surface)] md:mt-0 md:flex-[1_1_0] md:border-x">
+            <div className="flex h-full min-h-0 flex-1 flex-col px-3 py-4 md:px-4">
               <header className="mb-3 shrink-0">
                 <h2 className="font-headline text-xl font-medium text-[var(--on-surface)] md:text-2xl">
                   {t("iterateTitle")}
@@ -1358,7 +1358,7 @@ export function WorkspaceClient() {
                 ) : null}
               </header>
 
-              <div className="space-y-3 pr-1 md:min-h-0 md:flex-1 md:overflow-y-auto md:scrollbar-thin">
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1 scrollbar-thin">
                 {!selectedQ && (
                   <p className="text-sm text-[var(--on-surface-variant)]">{t("selectQuestion")}</p>
                 )}
@@ -1437,10 +1437,10 @@ export function WorkspaceClient() {
           </section>
 
           <aside
-            className={`mt-2 flex shrink-0 flex-col bg-[var(--surface-container-low)] transition-[flex-basis] duration-200 md:mt-0 ${
+            className={`flex min-h-0 flex-col overflow-hidden bg-[var(--surface-container-low)] transition-[flex-basis] duration-200 md:mt-0 ${
               transcriptPanelOpen
-                ? "min-h-0 min-w-0 overflow-hidden p-4 md:min-h-0 md:flex-[1.08_1_0] md:overflow-hidden md:p-6"
-                : "min-h-0 min-w-0 overflow-hidden p-2 md:p-6 lg:flex-[0_0_2.75rem] lg:px-1"
+                ? "min-w-0 flex-1 p-4 md:flex-[1.08_1_0] md:p-6"
+                : "shrink-0 border-t border-[var(--outline-variant)]/10 p-2 md:flex-none md:border-t-0 md:p-6 lg:w-[2.75rem] lg:min-w-[2.75rem] lg:px-1"
             }`}
           >
             {transcriptPanelOpen ? (
