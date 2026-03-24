@@ -9,6 +9,7 @@ import { DraftNav } from "@/components/DraftNav";
 import { MaterialIcon } from "@/components/MaterialIcon";
 import type { AnalysisPayload } from "@/lib/client-session";
 import { PENDING_ROUND_SESSION_KEY } from "@/lib/projects-storage";
+import { getDemoResumeAndJd } from "@/lib/demo-copy";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -123,10 +124,14 @@ export function PrepClient() {
         setBootstrapDone(true);
         return;
       }
+      const { resume: demoResume, jd: demoJd } = getDemoResumeAndJd(locale);
       const c = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: "{}",
+        body: JSON.stringify({
+          resume_text: demoResume,
+          jd_text: demoJd,
+        }),
       });
       const cj = (await c.json()) as { id?: string; error?: string };
       if (cancelled) return;
@@ -167,8 +172,16 @@ export function PrepClient() {
         return;
       }
       const p = j.project;
-      setResume(p.resume_text ?? "");
-      setJd(p.jd_text ?? "");
+      const r0 = (p.resume_text ?? "").trim();
+      const j0 = (p.jd_text ?? "").trim();
+      if (!r0 && !j0) {
+        const { resume: dr, jd: dj } = getDemoResumeAndJd(locale);
+        setResume(dr);
+        setJd(dj);
+      } else {
+        setResume(p.resume_text ?? "");
+        setJd(p.jd_text ?? "");
+      }
       setRoundsCount(clampRoundsCount(Number(p.rounds_count) || 3));
       {
         const raw = p.analysis_jsonb;
