@@ -9,7 +9,11 @@ import { DraftNav } from "@/components/DraftNav";
 import { MaterialIcon } from "@/components/MaterialIcon";
 import type { AnalysisPayload } from "@/lib/client-session";
 import { PENDING_ROUND_SESSION_KEY } from "@/lib/projects-storage";
-import { getDemoResumeAndJd } from "@/lib/demo-copy";
+import {
+  getDemoResumeAndJd,
+  upgradeIfLegacyForkSeedTemplate,
+  upgradeLegacyDemoJdEn,
+} from "@/lib/demo-copy";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -174,7 +178,32 @@ export function PrepClient() {
       const p = j.project;
       const r0 = (p.resume_text ?? "").trim();
       const j0 = (p.jd_text ?? "").trim();
-      if (!r0 && !j0) {
+      const forkDemo = upgradeIfLegacyForkSeedTemplate(
+        p.resume_text ?? "",
+        p.jd_text ?? "",
+        locale,
+      );
+      const jdUpgraded = upgradeLegacyDemoJdEn(p.jd_text ?? "");
+      if (forkDemo) {
+        setResume(forkDemo.resume);
+        setJd(forkDemo.jd);
+        void fetch(`/api/projects/${projectId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            resume_text: forkDemo.resume,
+            jd_text: forkDemo.jd,
+          }),
+        });
+      } else if (jdUpgraded) {
+        setResume(p.resume_text ?? "");
+        setJd(jdUpgraded);
+        void fetch(`/api/projects/${projectId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ jd_text: jdUpgraded }),
+        });
+      } else if (!r0 && !j0) {
         const { resume: dr, jd: dj } = getDemoResumeAndJd(locale);
         setResume(dr);
         setJd(dj);
@@ -203,7 +232,7 @@ export function PrepClient() {
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+  }, [projectId, locale]);
 
   useEffect(() => {
     const n = Math.max(1, thinkingSteps.length);

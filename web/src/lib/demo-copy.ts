@@ -107,6 +107,85 @@ WHAT WE’RE LOOKING FOR
 NOTE
 Edmunds is a long-standing U.S. automotive research and shopping brand (reviews, pricing, listings, and buyer education)—similar in spirit to automotive “content + community + tools” platforms elsewhere. This JD is a fictional sample for interview prep, not a live opening.`;
 
+/** 旧构建写入数据库的英文演示 JD；与当前库中正文一致时由准备页自动升级为 DEMO_JD_EN 并 PATCH 持久化。 */
+export const LEGACY_DEMO_JD_EN_CARGURUS = `Product Manager Intern | CarGurus | Campus / Early Career (sample JD)
+Comp: ~$40–42/hr (illustrative) | Location: Cambridge, MA (onsite hybrid) | Schedule: 4 days/week, ~12 weeks | Degree: Bachelor’s required
+
+Focus areas: Consumer product · Community · AI-assisted features · Automotive content & listings
+
+RESPONSIBILITIES
+1. Support the full product lifecycle: help define roadmap themes and translate them into scoped releases.
+2. Run lightweight user research (surveys, interviews, session replays) and turn insights into concrete product bets.
+3. Partner with engineering, design, marketing, and ops to keep delivery on track and quality bar high.
+4. Monitor post-launch metrics and qualitative feedback; propose iterative improvements to flows and tooling.
+
+QUALIFICATIONS
+1. Strong structured thinking and problem decomposition; comfortable owning a slice of discovery and design.
+2. Familiar with modern software delivery (agile rituals, specs, QA handoffs).
+3. Excellent written and verbal communication; able to align cross-functional partners quickly.
+4. Proficient with standard PM tooling (docs, whiteboards, basic analytics); solid PRD / one-pager writing skills.
+
+NOTE
+CarGurus operates a large U.S. automotive marketplace and research destination (listings, reviews, pricing tools). This posting is a realistic-style sample for interview practice, not an active requisition.`;
+
+function normalizeDemoText(s: string): string {
+  return s.replace(/\r\n/g, "\n").trim();
+}
+
+/** 若 JD 仍为旧版 CarGurus 演示文，返回新版 Edmunds 文；否则返回 null。 */
+export function upgradeLegacyDemoJdEn(jd: string): string | null {
+  const n = normalizeDemoText(jd);
+  if (n === normalizeDemoText(LEGACY_DEMO_JD_EN_CARGURUS)) {
+    return DEMO_JD_EN;
+  }
+  // 与种子模板或库里略存差异时仍能识别为同一套演示 JD
+  if (/\bCarGurus\b/.test(n) && n.includes("Campus / Early Career (sample JD)")) {
+    return DEMO_JD_EN;
+  }
+  return null;
+}
+
+/** 与 `seed_system_template_if_missing` 写入库里的系统模板一致；新用户注册会 fork 此内容。 */
+export const LEGACY_FORK_SEED_RESUME = `张伟 | 产品经理
+手机：138****0000 | 邮箱：zhangwei@example.com
+
+【教育】
+· 复旦大学 信息管理与信息系统 本科 2016–2020
+
+【经历】
+· ABC 科技（2021–至今）高级产品经理
+  - 负责 B 端 SaaS 增长与留存，主导权限与计费模块迭代
+  - 用数据漏斗定位 onboarding 流失，推动实验将激活率提升约 18%
+
+【技能】
+SQL、Figma、A/B 测试、PRD、跨团队沟通`;
+
+export const LEGACY_FORK_SEED_JD = `高级产品经理 | XYZ 云
+我们寻找一位熟悉 B 端 SaaS、具备数据意识的产品经理。
+
+岗位职责：
+- 负责核心商业模块（计费、订单、权限）的产品规划与落地
+- 与研发紧密合作，拆解需求、定义验收标准并推动上线
+
+任职要求：
+- 3 年以上 ToB 产品经验
+- 熟练使用数据分析工具，能写基础 SQL 者优先`;
+
+/** 新用户首项目来自 DB fork 时，替换为与前端一致的 locale 演示（懂车帝 / Edmunds）。 */
+export function upgradeIfLegacyForkSeedTemplate(
+  resume: string,
+  jd: string,
+  locale: string,
+): { resume: string; jd: string } | null {
+  if (
+    normalizeDemoText(resume) === normalizeDemoText(LEGACY_FORK_SEED_RESUME) &&
+    normalizeDemoText(jd) === normalizeDemoText(LEGACY_FORK_SEED_JD)
+  ) {
+    return getDemoResumeAndJd(locale);
+  }
+  return null;
+}
+
 export function getDemoResumeAndJd(locale: string): { resume: string; jd: string } {
   return locale === "en"
     ? { resume: DEMO_RESUME_EN, jd: DEMO_JD_EN }
