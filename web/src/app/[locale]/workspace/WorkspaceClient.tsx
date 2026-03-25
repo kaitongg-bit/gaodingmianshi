@@ -429,23 +429,40 @@ export function WorkspaceClient() {
         setChatById(j.chatById ?? {});
         setScriptById(j.scriptById ?? {});
 
-        const pendingRaw = sessionStorage.getItem(PENDING_ROUND_SESSION_KEY);
-        if (pendingRaw) {
-          const rN = Number.parseInt(pendingRaw, 10);
-          sessionStorage.removeItem(PENDING_ROUND_SESSION_KEY);
-          const round =
-            Number.isFinite(rN) && rN >= 1 && rN <= ws.roundsCount ? rN : 1;
-          setActiveRound(round);
-          const pick = qs.find((q) => q.round === round) ?? qs[0];
-          setSelectedId(pick?.id ?? null);
+        const qFocus =
+          typeof window !== "undefined"
+            ? new URLSearchParams(window.location.search).get("question")
+            : null;
+        const matchByQuestion =
+          qFocus && UUID_RE.test(qFocus) ? qs.find((q) => q.id === qFocus) : undefined;
+
+        if (matchByQuestion) {
+          setActiveRound(matchByQuestion.round);
+          setSelectedId(matchByQuestion.id);
+          routerRef.current.replace(`/workspace?project=${projectQuery}`);
         } else {
-          const ar = Math.min(
-            ws.roundsCount,
-            Math.max(1, Number(proj.active_round) || 1),
-          );
-          setActiveRound(ar);
-          const pick = qs.find((q) => q.round === ar) ?? qs[0];
-          setSelectedId(pick?.id ?? null);
+          const pendingRaw = sessionStorage.getItem(PENDING_ROUND_SESSION_KEY);
+          if (pendingRaw) {
+            const rN = Number.parseInt(pendingRaw, 10);
+            sessionStorage.removeItem(PENDING_ROUND_SESSION_KEY);
+            const round =
+              Number.isFinite(rN) && rN >= 1 && rN <= ws.roundsCount ? rN : 1;
+            setActiveRound(round);
+            const pick = qs.find((q) => q.round === round) ?? qs[0];
+            setSelectedId(pick?.id ?? null);
+          } else {
+            const ar = Math.min(
+              ws.roundsCount,
+              Math.max(1, Number(proj.active_round) || 1),
+            );
+            setActiveRound(ar);
+            const pick = qs.find((q) => q.round === ar) ?? qs[0];
+            setSelectedId(pick?.id ?? null);
+          }
+        }
+
+        if (qFocus && UUID_RE.test(qFocus) && !matchByQuestion) {
+          routerRef.current.replace(`/workspace?project=${projectQuery}`);
         }
 
         setCloudReady(true);

@@ -136,6 +136,19 @@ export function ProjectsClient() {
             </h1>
             <p className="mt-2 max-w-lg text-sm text-[var(--on-surface-variant)]">{t("subtitle")}</p>
           </div>
+          <Link
+            href="/question-bank"
+            className="inline-flex shrink-0 items-center gap-2 self-start rounded-2xl border border-[var(--outline-variant)]/25 bg-[var(--surface-container-low)] px-4 py-3 text-sm font-semibold text-[var(--primary)] shadow-sm transition hover:border-[var(--primary)]/30 hover:bg-[var(--surface-container-high)]/60 md:self-end"
+          >
+            <MaterialIcon name="hub" className="!text-xl" />
+            <span className="text-left leading-tight">
+              <span className="block">{t("questionBankEntry")}</span>
+              <span className="mt-0.5 block text-[11px] font-normal text-[var(--on-surface-variant)]">
+                {t("questionBankEntrySub")}
+              </span>
+            </span>
+            <MaterialIcon name="chevron_right" className="!text-lg text-[var(--on-surface-variant)]" />
+          </Link>
         </header>
 
         {loadError ? (
@@ -325,18 +338,34 @@ export function ProjectsClient() {
         </div>
       </main>
 
-      <nav className="fixed bottom-0 left-0 z-50 flex w-full justify-around border-t border-[var(--outline-variant)]/10 bg-[var(--surface)]/90 px-4 py-3 backdrop-blur-xl md:hidden">
-        <span className="flex flex-col items-center text-[var(--primary)]">
+      <nav className="fixed bottom-0 left-0 z-50 flex w-full justify-around border-t border-[var(--outline-variant)]/10 bg-[var(--surface)]/90 px-2 py-3 backdrop-blur-xl md:hidden">
+        <span className="flex min-w-0 flex-1 flex-col items-center text-[var(--primary)]">
           <MaterialIcon name="assignment" />
-          <span className="mt-1 text-[10px] font-bold uppercase tracking-widest">{t("mobileProjects")}</span>
+          <span className="mt-1 max-w-[4.5rem] truncate text-center text-[10px] font-bold uppercase tracking-widest">
+            {t("mobileProjects")}
+          </span>
         </span>
-        <button type="button" onClick={() => void goNewSession()} className="flex flex-col items-center text-[var(--on-surface-variant)]">
+        <button
+          type="button"
+          onClick={() => void goNewSession()}
+          className="flex min-w-0 flex-1 flex-col items-center text-[var(--on-surface-variant)]"
+        >
           <MaterialIcon name="add_circle" />
-          <span className="mt-1 text-[10px] font-medium uppercase tracking-widest">{t("mobileNew")}</span>
+          <span className="mt-1 max-w-[4.5rem] truncate text-center text-[10px] font-medium uppercase tracking-widest">
+            {t("mobileNew")}
+          </span>
         </button>
-        <Link href="/support" className="flex flex-col items-center text-[var(--on-surface-variant)]">
+        <Link href="/question-bank" className="flex min-w-0 flex-1 flex-col items-center text-[var(--on-surface-variant)]">
+          <MaterialIcon name="hub" />
+          <span className="mt-1 max-w-[4.5rem] truncate text-center text-[10px] font-medium uppercase tracking-widest">
+            {t("mobileQuestionBank")}
+          </span>
+        </Link>
+        <Link href="/support" className="flex min-w-0 flex-1 flex-col items-center text-[var(--on-surface-variant)]">
           <MaterialIcon name="help" />
-          <span className="mt-1 text-[10px] font-medium uppercase tracking-widest">{t("mobileSupport")}</span>
+          <span className="mt-1 max-w-[4.5rem] truncate text-center text-[10px] font-medium uppercase tracking-widest">
+            {t("mobileSupport")}
+          </span>
         </Link>
       </nav>
     </div>

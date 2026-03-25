@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { Link } from "@/i18n/navigation";
 import { brandName } from "@/lib/brand";
 import { DraftNav } from "@/components/DraftNav";
 import { LandingBottomCta } from "@/components/LandingBottomCta";
@@ -73,6 +74,25 @@ export default async function LandingPage({
                 </div>
               ))}
             </div>
+          </div>
+        </section>
+
+        <section className="border-t border-[var(--outline-variant)]/10 bg-[var(--surface)] py-14">
+          <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 md:flex-row md:items-center md:justify-between md:px-8">
+            <div className="max-w-xl">
+              <h2 className="font-headline text-2xl font-semibold text-[var(--on-surface)] md:text-3xl">
+                {t("questionBankTeaserTitle")}
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--on-surface-variant)] md:text-base">
+                {t("questionBankTeaserBody")}
+              </p>
+            </div>
+            <Link
+              href="/question-bank"
+              className="inline-flex shrink-0 items-center justify-center rounded-2xl bg-[var(--primary)] px-6 py-3.5 text-sm font-semibold text-[var(--on-primary)] shadow-[var(--shadow-card)] transition hover:opacity-95"
+            >
+              {t("questionBankTeaserCta")}
+            </Link>
           </div>
         </section>
 
