@@ -60,14 +60,13 @@ body {
   font-size: 1.25rem;
 }
 
+/* 仅用透明度入场：祖先若带 transform 会破坏子元素 position:fixed 相对视口固定 */
 @keyframes page-enter {
   from {
     opacity: 0;
-    transform: translateY(6px);
   }
   to {
     opacity: 1;
-    transform: none;
   }
 }
 
@@ -138,9 +137,28 @@ body {
   }
 }
 
+/* 顶栏：固定 + 轻毛玻璃（产品名、登录注册等） */
 .glass-nav {
-  background: rgba(251, 249, 244, 0.85);
-  backdrop-filter: blur(12px);
+  left: 0;
+  right: 0;
+  background: color-mix(in srgb, var(--background) 72%, transparent);
+  backdrop-filter: blur(16px) saturate(1.12);
+  -webkit-backdrop-filter: blur(16px) saturate(1.12);
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  .glass-nav {
+    background: var(--background);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-nav {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
 }
 
 .scrollbar-thin::-webkit-scrollbar {

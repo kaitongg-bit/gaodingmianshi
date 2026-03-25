@@ -74,7 +74,7 @@ export function DraftNav({
   }, [pathname]);
 
   return (
-    <nav className="glass-nav fixed top-0 z-50 flex w-full items-center justify-between border-b border-[var(--outline-variant)]/15 px-4 py-3 md:px-8">
+    <nav className="glass-nav fixed inset-x-0 top-0 z-[100] flex w-full items-center justify-between border-b border-[var(--outline-variant)]/15 px-4 py-3 md:px-8">
       <div className="flex min-w-0 items-center gap-4 md:gap-10">
         {variant === "app" ? (
           <div className="flex min-w-0 items-center gap-1 md:gap-2">
