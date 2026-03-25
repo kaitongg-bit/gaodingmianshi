@@ -8,6 +8,9 @@ type ChatMessage = { role: "user" | "assistant"; content: string };
 const MAX_JD_CHARS = 6000;
 const MAX_RESUME_CHARS = 6000;
 
+/** Vercel / 长回复：按需在部署环境上调大 */
+export const maxDuration = 120;
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as {

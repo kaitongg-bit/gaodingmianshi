@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useMessages, useTranslations } from "next-intl";
 import { clampRoundsCount, MAX_INTERVIEW_ROUNDS } from "@/lib/project-rounds";
 import { useSearchParams } from "next/navigation";
@@ -37,8 +37,14 @@ export function PrepClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const projectIdParam = searchParams.get("project");
-  const messages = useMessages() as { Prep?: { thinkingSteps?: string[] } };
+  const messages = useMessages() as {
+    Prep?: { thinkingSteps?: string[]; generatingSteps?: string[] };
+  };
   const thinkingSteps = messages.Prep?.thinkingSteps ?? [];
+  const generatingSteps = useMemo(
+    () => messages.Prep?.generatingSteps ?? [],
+    [messages],
+  );
 
   const [projectId, setProjectId] = useState<string | null>(null);
   const [bootstrapDone, setBootstrapDone] = useState(false);
@@ -56,6 +62,9 @@ export function PrepClient() {
   const [addRoundBusy, setAddRoundBusy] = useState(false);
   const [removeRoundBusy, setRemoveRoundBusy] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const genTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [genThinkingStep, setGenThinkingStep] = useState(0);
+  const [prepNoteModal, setPrepNoteModal] = useState<null | "focus" | "risk">(null);
 
   const handleAddRound = useCallback(async () => {
     if (!projectId) return;
@@ -249,6 +258,40 @@ export function PrepClient() {
   }, [loadingAnalyze, thinkingSteps.length]);
 
   useEffect(() => {
+    if (!loadingGen) {
+      if (genTimerRef.current) {
+        clearInterval(genTimerRef.current);
+        genTimerRef.current = null;
+      }
+      return;
+    }
+    const steps =
+      generatingSteps.length > 0 ? generatingSteps : [t("generatingQuestions")];
+    setGenThinkingStep(0);
+    const n = Math.max(1, steps.length);
+    genTimerRef.current = setInterval(() => setGenThinkingStep((s) => (s + 1) % n), 900);
+    return () => {
+      if (genTimerRef.current) {
+        clearInterval(genTimerRef.current);
+        genTimerRef.current = null;
+      }
+    };
+  }, [loadingGen, generatingSteps, t]);
+
+  useEffect(() => {
+    if (!prepNoteModal) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setPrepNoteModal(null);
+    }
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [prepNoteModal]);
+
+  useEffect(() => {
     if (!projectId || !hydrated) return;
     const id = window.setTimeout(() => {
       void fetch(`/api/projects/${projectId}`, {
@@ -397,9 +440,27 @@ export function PrepClient() {
   const score = analysis?.overallFit?.score0to100 ?? 0;
   const dims = analysis?.dimensions ?? [];
 
+  const focusNoteFull = (
+    analysis?.prepNotes?.likelyQuestionThemes ||
+    analysis?.prepNotes?.strengths ||
+    ""
+  ).trim();
+  const riskNoteFull = (analysis?.prepNotes?.gaps || "").trim();
+  const focusPreview = focusNoteFull || "—";
+  const riskPreview = riskNoteFull || "—";
+
+  const modalBody =
+    prepNoteModal === "focus"
+      ? focusNoteFull || "—"
+      : prepNoteModal === "risk"
+        ? riskNoteFull || "—"
+        : "";
+  const modalTitle =
+    prepNoteModal === "focus" ? t("focusArea") : prepNoteModal === "risk" ? t("riskFactor") : "";
+
   if (!bootstrapDone || !projectId || !hydrated) {
     return (
-      <div className="min-h-full bg-[var(--background)]">
+      <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[var(--background)]">
         <DraftNav
           variant="app"
           activeStep="prep"
@@ -411,7 +472,7 @@ export function PrepClient() {
           onRemoveRound={projectId ? handleRemoveRound : undefined}
           removeRoundBusy={removeRoundBusy}
         />
-        <div className="flex min-h-[50vh] items-center justify-center px-4 pt-24 text-sm text-[var(--on-surface-variant)]">
+        <div className="flex min-h-0 flex-1 items-center justify-center px-4 pt-24 text-sm text-[var(--on-surface-variant)]">
           {loadError ?? "…"}
         </div>
       </div>
@@ -419,7 +480,7 @@ export function PrepClient() {
   }
 
   return (
-    <div className="min-h-full bg-[var(--background)]">
+    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[var(--background)]">
       <DraftNav
         variant="app"
         activeStep="prep"
@@ -431,173 +492,271 @@ export function PrepClient() {
         onRemoveRound={handleRemoveRound}
         removeRoundBusy={removeRoundBusy}
       />
-      <main id="main" className="mx-auto max-w-screen-2xl px-4 pb-16 pt-24 md:px-8">
+      <main
+        id="main"
+        className="mx-auto flex min-h-0 w-full max-w-screen-2xl flex-1 flex-col overflow-hidden px-4 pb-4 pt-24 md:px-8"
+      >
         {loadError ? (
-          <div className="mb-6 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-950">{loadError}</div>
+          <div className="mb-3 shrink-0 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-950">
+            {loadError}
+          </div>
         ) : null}
-        {error && (
-          <div className="mb-6 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-950">{error}</div>
-        )}
-        <div className="grid grid-cols-1 gap-12 md:grid-cols-12">
-          <section className="space-y-10 md:col-span-5">
-            <div className="flex items-end justify-between border-b border-[var(--outline-variant)]/30 pb-4">
-              <h1 className="font-headline text-3xl font-medium tracking-tight md:text-4xl">
+        {error ? (
+          <div className="mb-3 shrink-0 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-950">{error}</div>
+        ) : null}
+
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-hidden md:grid-cols-12 md:gap-8">
+          <section className="flex min-h-0 flex-col overflow-hidden md:col-span-5">
+            <div className="flex shrink-0 items-end justify-between border-b border-[var(--outline-variant)]/30 pb-3">
+              <h1 className="font-headline text-2xl font-medium tracking-tight md:text-3xl">
                 {t("stageAssets")}
               </h1>
-              <span className="text-sm uppercase tracking-widest text-[var(--on-surface-variant)]">
+              <span className="text-xs uppercase tracking-widest text-[var(--on-surface-variant)] md:text-sm">
                 {t("analysisVer")}
               </span>
             </div>
 
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <MaterialIcon name="description" className="text-[var(--primary)]" />
-                  <h2 className="font-headline text-2xl">{t("resume")}</h2>
+            <div className="mt-4 shrink-0 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <MaterialIcon name="description" className="shrink-0 text-[var(--primary)]" />
+                  <h2 className="font-headline truncate text-lg md:text-xl">{t("resume")}</h2>
                 </div>
                 <button
                   type="button"
-                  className="flex items-center gap-2 rounded-lg border border-[var(--primary)] px-4 py-2 text-sm font-medium text-[var(--primary)] transition hover:bg-[var(--primary)]/5"
+                  className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[var(--primary)] px-3 py-1.5 text-xs font-medium text-[var(--primary)] transition hover:bg-[var(--primary)]/5 md:text-sm"
                 >
                   <MaterialIcon name="upload" className="!text-base" />
                   {t("uploadResume")}
                 </button>
               </div>
-              <div className="space-y-3 rounded-xl bg-[var(--surface-container-low)] p-6">
-                <label className="text-xs font-medium uppercase tracking-widest text-[var(--on-surface-variant)]">
+              <div className="space-y-2 rounded-xl bg-[var(--surface-container-low)] p-4">
+                <label className="text-[10px] font-medium uppercase tracking-widest text-[var(--on-surface-variant)] md:text-xs">
                   {t("resumeHint")}
                 </label>
                 <textarea
                   value={resume}
                   onChange={(e) => setResume(e.target.value)}
                   placeholder={t("resumePlaceholder")}
-                  className="h-40 w-full resize-none rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] p-4 text-sm leading-relaxed text-[var(--on-surface)] outline-none ring-0 focus:ring-1 focus:ring-[var(--primary)]/30"
+                  className="h-36 w-full resize-none rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] p-3 text-sm leading-relaxed text-[var(--on-surface)] outline-none ring-0 focus:ring-1 focus:ring-[var(--primary)]/30 md:h-40"
                 />
               </div>
             </div>
 
-            <div className="space-y-6">
-              <div className="flex items-center gap-3">
+            <div className="mt-4 flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
+              <div className="flex shrink-0 items-center gap-2">
                 <MaterialIcon name="article" className="text-[var(--primary)]" />
-                <h2 className="font-headline text-2xl">{t("jd")}</h2>
+                <h2 className="font-headline text-lg md:text-xl">{t("jd")}</h2>
               </div>
-              <div className="rounded-xl bg-[var(--surface-container-low)] p-6">
-                <label className="mb-3 block text-xs font-medium uppercase tracking-widest text-[var(--on-surface-variant)]">
+              <div className="flex min-h-0 flex-1 flex-col rounded-xl bg-[var(--surface-container-low)] p-4">
+                <label className="mb-2 shrink-0 text-[10px] font-medium uppercase tracking-widest text-[var(--on-surface-variant)] md:text-xs">
                   {t("jdLabel")}
                 </label>
                 <textarea
                   value={jd}
                   onChange={(e) => setJd(e.target.value)}
                   placeholder={t("jdPlaceholder")}
-                  className="h-64 w-full resize-none rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] p-4 text-sm leading-relaxed text-[var(--on-surface)] outline-none focus:ring-1 focus:ring-[var(--primary)]/30"
+                  className="min-h-0 w-full flex-1 resize-none rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] p-3 text-sm leading-relaxed text-[var(--on-surface)] outline-none focus:ring-1 focus:ring-[var(--primary)]/30"
                 />
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => void runAnalyze()}
-              disabled={loadingAnalyze}
-              className="w-full rounded-xl border border-[var(--outline-variant)]/40 py-3 text-sm font-medium text-[var(--primary)] transition hover:bg-[var(--surface-container-low)] disabled:opacity-50"
-            >
-              {loadingAnalyze ? t("analyzing") : t("runAnalysis")}
-            </button>
-            {loadingAnalyze && thinkingSteps.length > 0 && (
-              <p className="text-xs text-[var(--on-surface-variant)]">
-                {thinkingSteps[thinkingStep % thinkingSteps.length]}
-              </p>
-            )}
+            <div className="mt-3 shrink-0 space-y-1.5">
+              <div className="flex min-h-[2.75rem] flex-col justify-end gap-0.5">
+                {loadingAnalyze && thinkingSteps.length > 0 ? (
+                  <p className="text-center text-[10px] leading-tight text-[var(--on-surface-variant)]">
+                    {thinkingSteps[thinkingStep % thinkingSteps.length]}
+                  </p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                onClick={() => void runAnalyze()}
+                disabled={loadingAnalyze}
+                className="flex min-h-12 w-full items-center justify-center rounded-xl border border-[var(--outline-variant)]/40 px-3 py-2 text-center text-sm font-medium text-[var(--primary)] transition hover:bg-[var(--surface-container-low)] disabled:opacity-50"
+              >
+                {loadingAnalyze ? t("analyzing") : t("runAnalysis")}
+              </button>
+            </div>
           </section>
 
-          <section className="space-y-8 md:col-span-7">
-            <div className="relative flex flex-col items-stretch justify-between gap-6 overflow-hidden rounded-xl bg-[var(--primary)] p-8 text-[var(--on-primary)] shadow-[var(--shadow-card)] md:flex-row md:items-center">
-              <div className="relative z-10 max-w-md">
-                <h2 className="font-headline text-2xl md:text-3xl">{t("strategicTitle")}</h2>
-                <p className="mt-3 text-sm leading-relaxed text-[var(--on-primary)]/90">
-                  {analysis
-                    ? t("strategicBody", { score: String(score) })
-                    : locale === "zh"
-                      ? "运行分析后，将在此展示与岗位的匹配摘要。"
-                      : "Run analysis to see how your materials align with the role."}
+          <section className="flex min-h-0 flex-col overflow-hidden md:col-span-7">
+            <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain pr-1 scrollbar-thin">
+              <div className="relative flex flex-col items-stretch justify-between gap-6 overflow-hidden rounded-xl bg-[var(--primary)] p-6 text-[var(--on-primary)] shadow-[var(--shadow-card)] md:flex-row md:items-center md:p-8">
+                <div className="relative z-10 max-w-md">
+                  <h2 className="font-headline text-xl md:text-3xl">{t("strategicTitle")}</h2>
+                  <p className="mt-3 text-sm leading-relaxed text-[var(--on-primary)]/90">
+                    {analysis
+                      ? t("strategicBody", { score: String(score) })
+                      : locale === "zh"
+                        ? "运行分析后，将在此展示与岗位的匹配摘要。"
+                        : "Run analysis to see how your materials align with the role."}
+                  </p>
+                  <p className="mt-2 text-xs opacity-80">{t("disclaimer")}</p>
+                </div>
+                <div className="relative z-10 flex flex-col items-center">
+                  <div className="flex h-24 w-24 items-center justify-center rounded-full border-4 border-[var(--primary-container)]/40 md:h-28 md:w-28">
+                    <span className="font-headline text-3xl font-bold md:text-4xl">
+                      {analysis ? score : "—"}
+                    </span>
+                  </div>
+                  <span className="mt-2 text-[10px] font-medium uppercase tracking-widest text-[var(--on-primary)]/70">
+                    {t("matchScore")}
+                  </span>
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-[var(--surface-container)] p-6 md:p-8">
+                <h2 className="font-headline mb-5 text-xl md:text-2xl">{t("distributionTitle")}</h2>
+                <div className="space-y-5">
+                  {(dims.length
+                    ? dims.slice(0, 4)
+                    : [
+                        { name: "Experience", level: "40%", detail: "" },
+                        { name: "Technical", level: "30%", detail: "" },
+                        { name: "Culture", level: "15%", detail: "" },
+                        { name: "Scenario", level: "15%", detail: "" },
+                      ]
+                  ).map((d, i) => (
+                    <div key={`${d.name}-${i}`} className="space-y-2">
+                      <div className="flex justify-between gap-2 text-sm">
+                        <span className="font-medium text-[var(--on-surface)]">{d.name}</span>
+                        <span className="shrink-0 text-[var(--on-surface-variant)]">{d.level}</span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--surface-container-highest)]">
+                        <div
+                          className="h-full rounded-full bg-[var(--primary)]"
+                          style={{ width: `${20 + i * 20}%` }}
+                        />
+                      </div>
+                      {d.detail ? (
+                        <p className="line-clamp-3 text-xs leading-relaxed text-[var(--on-surface-variant)]">
+                          {d.detail}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+                {analysis?.prepNotes ? (
+                  <div className="mt-6 grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <button
+                      type="button"
+                      className="rounded-lg border-l-4 border-[var(--primary)]/25 bg-[var(--surface-container-lowest)] p-4 text-left transition hover:bg-[var(--surface-container-high)]/50"
+                      onClick={() => setPrepNoteModal("focus")}
+                    >
+                      <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[var(--on-surface-variant)]">
+                        {t("focusArea")}
+                      </p>
+                      <p className="line-clamp-4 text-sm font-medium text-[var(--on-surface)]">
+                        {focusPreview}
+                      </p>
+                      <p className="mt-2 text-[10px] text-[var(--primary)]">{t("analysisDetailHint")}</p>
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-lg border-l-4 border-[var(--primary)]/25 bg-[var(--surface-container-lowest)] p-4 text-left transition hover:bg-[var(--surface-container-high)]/50"
+                      onClick={() => setPrepNoteModal("risk")}
+                    >
+                      <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[var(--on-surface-variant)]">
+                        {t("riskFactor")}
+                      </p>
+                      <p className="line-clamp-4 text-sm font-medium text-[var(--on-surface)]">
+                        {riskPreview}
+                      </p>
+                      <p className="mt-2 text-[10px] text-[var(--primary)]">{t("analysisDetailHint")}</p>
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="shrink-0 space-y-1.5 border-t border-transparent pt-3">
+              <div className="flex min-h-[2.75rem] flex-col justify-end gap-0.5">
+                <p className="line-clamp-3 text-center text-[10px] leading-tight text-[var(--on-surface-variant)]">
+                  {t("confirmHint")}
                 </p>
-                <p className="mt-2 text-xs opacity-80">{t("disclaimer")}</p>
+                {loadingGen && generatingSteps.length > 0 ? (
+                  <p className="text-center text-[10px] leading-tight text-[var(--on-surface-variant)]">
+                    {generatingSteps[genThinkingStep % generatingSteps.length]}
+                  </p>
+                ) : null}
               </div>
-              <div className="relative z-10 flex flex-col items-center">
-                <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-[var(--primary-container)]/40">
-                  <span className="font-headline text-4xl font-bold">{analysis ? score : "—"}</span>
-                </div>
-                <span className="mt-2 text-[10px] font-medium uppercase tracking-widest text-[var(--on-primary)]/70">
-                  {t("matchScore")}
-                </span>
-              </div>
-            </div>
-
-            <div className="rounded-xl bg-[var(--surface-container)] p-8">
-              <h2 className="font-headline mb-6 text-2xl">{t("distributionTitle")}</h2>
-              <div className="space-y-6">
-                {(dims.length
-                  ? dims.slice(0, 4)
-                  : [
-                      { name: "Experience", level: "40%", detail: "" },
-                      { name: "Technical", level: "30%", detail: "" },
-                      { name: "Culture", level: "15%", detail: "" },
-                      { name: "Scenario", level: "15%", detail: "" },
-                    ]
-                ).map((d, i) => (
-                  <div key={`${d.name}-${i}`} className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="font-medium text-[var(--on-surface)]">{d.name}</span>
-                      <span className="text-[var(--on-surface-variant)]">{d.level}</span>
-                    </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--surface-container-highest)]">
-                      <div
-                        className="h-full rounded-full bg-[var(--primary)]"
-                        style={{ width: `${20 + i * 20}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {analysis?.prepNotes && (
-                <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="rounded-lg border-l-4 border-[var(--primary)]/25 bg-[var(--surface-container-lowest)] p-5">
-                    <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[var(--on-surface-variant)]">
-                      {t("focusArea")}
-                    </p>
-                    <p className="text-sm font-medium text-[var(--on-surface)]">
-                      {(analysis.prepNotes.likelyQuestionThemes || analysis.prepNotes.strengths || "—").slice(
-                        0,
-                        120,
-                      )}
-                    </p>
-                  </div>
-                  <div className="rounded-lg border-l-4 border-[var(--primary)]/25 bg-[var(--surface-container-lowest)] p-5">
-                    <p className="mb-1 text-[10px] font-bold uppercase tracking-widest text-[var(--on-surface-variant)]">
-                      {t("riskFactor")}
-                    </p>
-                    <p className="text-sm font-medium text-[var(--on-surface)]">
-                      {(analysis.prepNotes.gaps || "—").slice(0, 120)}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex flex-col items-center gap-3 pt-2">
               <button
                 type="button"
                 onClick={() => void confirmAndGenerate()}
                 disabled={loadingGen}
-                className="flex w-full items-center justify-center gap-3 rounded-xl bg-[var(--primary)] py-5 text-lg font-medium text-[var(--on-primary)] shadow-lg transition hover:opacity-95 active:scale-[0.99] disabled:opacity-50"
+                className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-3 py-2 text-center text-sm font-medium text-[var(--on-primary)] shadow-lg transition hover:opacity-95 active:scale-[0.99] disabled:opacity-50 md:gap-3 md:text-base"
               >
-                {loadingGen ? t("analyzing") : t("confirmCta")}
-                <MaterialIcon name="auto_awesome" />
+                {loadingGen ? (
+                  <span className="flex items-center justify-center gap-3">
+                    <span className="inline-flex h-5 items-end gap-1" aria-hidden>
+                      <span
+                        className="chat-bounce-dot inline-block h-2 w-2 rounded-full bg-[var(--on-primary)]/90"
+                        style={{ animationDelay: "0ms" }}
+                      />
+                      <span
+                        className="chat-bounce-dot inline-block h-2 w-2 rounded-full bg-[var(--on-primary)]/90"
+                        style={{ animationDelay: "0.12s" }}
+                      />
+                      <span
+                        className="chat-bounce-dot inline-block h-2 w-2 rounded-full bg-[var(--on-primary)]/90"
+                        style={{ animationDelay: "0.24s" }}
+                      />
+                    </span>
+                    <span>{t("generatingQuestions")}</span>
+                  </span>
+                ) : (
+                  <>
+                    {t("confirmCta")}
+                    <MaterialIcon name="auto_awesome" />
+                  </>
+                )}
               </button>
-              <p className="text-center text-xs text-[var(--on-surface-variant)]">{t("confirmHint")}</p>
             </div>
           </section>
         </div>
       </main>
+
+      {prepNoteModal ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 p-4 sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="prep-note-modal-title"
+          onClick={() => setPrepNoteModal(null)}
+        >
+          <div
+            className="max-h-[min(72vh,520px)] w-full max-w-lg overflow-hidden rounded-2xl bg-[var(--surface-container-lowest)] shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-[var(--outline-variant)]/20 px-4 py-3">
+              <h2 id="prep-note-modal-title" className="font-headline text-lg font-medium text-[var(--on-surface)]">
+                {modalTitle}
+              </h2>
+              <button
+                type="button"
+                className="rounded-lg p-2 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container-high)]"
+                onClick={() => setPrepNoteModal(null)}
+                aria-label={t("analysisDetailClose")}
+              >
+                <MaterialIcon name="close" />
+              </button>
+            </div>
+            <div className="max-h-[min(60vh,440px)] overflow-y-auto px-4 py-4 scrollbar-thin">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-[var(--on-surface)]">{modalBody}</p>
+            </div>
+            <div className="border-t border-[var(--outline-variant)]/20 px-4 py-3">
+              <button
+                type="button"
+                className="w-full rounded-xl bg-[var(--primary)] py-2.5 text-sm font-medium text-[var(--on-primary)]"
+                onClick={() => setPrepNoteModal(null)}
+              >
+                {t("analysisDetailClose")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

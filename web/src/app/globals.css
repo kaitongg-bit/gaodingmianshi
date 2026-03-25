@@ -79,6 +79,29 @@ body {
   }
 }
 
+/* AI 对话加载：三点依次上下弹跳 */
+@keyframes chat-bounce-dot {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-7px);
+  }
+}
+
+.chat-bounce-dot {
+  animation: chat-bounce-dot 0.75s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-bounce-dot {
+    animation: none;
+  }
+}
+
 .glass-nav {
   background: rgba(251, 249, 244, 0.85);
   backdrop-filter: blur(12px);

@@ -40,6 +40,8 @@ function mapChatError(
   if (err === "missing_api_key") return t("apiKeyMissing");
   if (err === "insufficient_credits") return t("insufficientCredits");
   if (err === "unauthorized") return t("loginRequired");
+  if (err === "empty_reply") return t("chatEmptyReply");
+  if (err === "chat_failed") return t("chatStreamFailed");
   return err ?? "error";
 }
 
@@ -771,10 +773,12 @@ export function WorkspaceClient() {
     setError(null);
     const userMsg = chatInput.trim();
     setChatInput("");
-    const prev = chatById[selectedQ.id] ?? [];
+    const qid = selectedQ.id;
+    const prev = chatById[qid] ?? [];
     const nextMsgs = [...prev, { role: "user" as const, content: userMsg }];
-    setChatById((m) => ({ ...m, [selectedQ.id]: nextMsgs }));
+    setChatById((m) => ({ ...m, [qid]: nextMsgs }));
     setLoadingChat(true);
+    let fullReply = "";
     try {
       const res = await fetch("/api/ai/chat", {
         method: "POST",
@@ -796,37 +800,46 @@ export function WorkspaceClient() {
       };
       if (!res.ok) {
         setError(mapChatError(json.error ?? json.message, t));
-        setChatById((m) => ({ ...m, [selectedQ.id]: prev }));
+        setChatById((m) => ({ ...m, [qid]: prev }));
         return;
       }
-      const reply = json.reply ?? "";
+      fullReply = json.reply ?? "";
 
-      const u = await fetch(`/api/questions/${selectedQ.id}/messages`, {
+      if (!fullReply.trim()) {
+        setError(mapChatError("empty_reply", t));
+        setChatById((m) => ({ ...m, [qid]: prev }));
+        return;
+      }
+
+      const u = await fetch(`/api/questions/${qid}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role: "user", content: userMsg }),
       });
       if (!u.ok) {
-        setChatById((m) => ({ ...m, [selectedQ.id]: prev }));
+        setChatById((m) => ({ ...m, [qid]: prev }));
         setError("save_failed");
         return;
       }
-      const a = await fetch(`/api/questions/${selectedQ.id}/messages`, {
+      const a = await fetch(`/api/questions/${qid}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: "assistant", content: reply }),
+        body: JSON.stringify({ role: "assistant", content: fullReply.trim() }),
       });
       if (!a.ok) {
-        setChatById((m) => ({ ...m, [selectedQ.id]: prev }));
+        setChatById((m) => ({ ...m, [qid]: prev }));
         setError("save_failed");
         return;
       }
 
-      const withAssistant = [...nextMsgs, { role: "assistant" as const, content: reply }];
-      setChatById((m) => ({ ...m, [selectedQ.id]: withAssistant }));
+      const trimmed = fullReply.trim();
+      setChatById((m) => ({
+        ...m,
+        [qid]: [...nextMsgs, { role: "assistant" as const, content: trimmed }],
+      }));
     } catch {
       setError("network");
-      setChatById((m) => ({ ...m, [selectedQ.id]: prev }));
+      setChatById((m) => ({ ...m, [qid]: prev }));
     } finally {
       setLoadingChat(false);
     }
@@ -932,11 +945,8 @@ export function WorkspaceClient() {
         ? draftAttachment.dataUrl
         : null;
 
-    const shouldUseAi =
-      draftAttachment != null ||
-      text.length > 40 ||
-      (text.match(/\n/g) || []).length >= 1 ||
-      /\d+\s*[\.\)、]\s*\S/m.test(text);
+    /** 仅粘贴/上传截图时走 AI（识图、拆题、主题）；纯文字直接入库，不扣识图积分 */
+    const shouldUseAi = draftAttachment != null;
 
     try {
       if (shouldUseAi) {
@@ -1351,9 +1361,6 @@ export function WorkspaceClient() {
                     <span className="whitespace-pre-wrap break-words text-[var(--primary)] italic">
                       {selectedQ.title}
                     </span>
-                    {loadingChat ? (
-                      <span className="ml-2 text-xs text-[var(--on-surface-variant)]">…</span>
-                    ) : null}
                   </p>
                 ) : null}
               </header>
@@ -1379,6 +1386,30 @@ export function WorkspaceClient() {
                       )}
                     </div>
                   ))}
+                {selectedQ && loadingChat ? (
+                  <div
+                    className="mr-auto flex max-w-[92%] items-center rounded-2xl border border-[var(--outline-variant)]/20 bg-[var(--surface-container-low)] px-5 py-4"
+                    role="status"
+                    aria-live="polite"
+                    aria-busy="true"
+                  >
+                    <span className="inline-flex h-6 items-end gap-1.5" aria-hidden>
+                      <span
+                        className="chat-bounce-dot inline-block h-2 w-2 rounded-full bg-[var(--primary)]/70"
+                        style={{ animationDelay: "0ms" }}
+                      />
+                      <span
+                        className="chat-bounce-dot inline-block h-2 w-2 rounded-full bg-[var(--primary)]/70"
+                        style={{ animationDelay: "0.12s" }}
+                      />
+                      <span
+                        className="chat-bounce-dot inline-block h-2 w-2 rounded-full bg-[var(--primary)]/70"
+                        style={{ animationDelay: "0.24s" }}
+                      />
+                    </span>
+                    <span className="sr-only">{t("chatGenerating")}</span>
+                  </div>
+                ) : null}
                 <div ref={chatEndRef} className="h-1 shrink-0" aria-hidden />
               </div>
 
@@ -1402,6 +1433,11 @@ export function WorkspaceClient() {
                   </button>
                 </div>
                 <div className="flex flex-col gap-1">
+                  {selectedQ ? (
+                    <p className="text-[11px] leading-snug text-[var(--on-surface-variant)]">
+                      {t("chatFollowUpHint")}
+                    </p>
+                  ) : null}
                   <div className="flex gap-2">
                   <input
                     className="min-w-0 flex-1 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] px-3 py-2.5 text-sm outline-none focus:ring-1 focus:ring-[var(--primary)]/25"
