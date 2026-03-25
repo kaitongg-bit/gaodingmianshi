@@ -55,7 +55,8 @@ export default async function LocaleLayout({
   }
 
   setRequestLocale(locale);
-  const messages = await getMessages();
+  /** 与 URL 段一致；避免页面独立渲染时未命中 setRequestLocale 而误载 defaultLocale 文案 */
+  const messages = await getMessages({ locale });
 
   return (
     <html

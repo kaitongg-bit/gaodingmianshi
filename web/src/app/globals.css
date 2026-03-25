@@ -13,6 +13,8 @@
   --primary: #715a4c;
   --primary-dim: #644e41;
   --primary-container: #fcdccb;
+  /* 与 DraftReady 参考稿一致，用于 hero 线框窗口装饰点 */
+  --tertiary: #735b38;
   --on-primary: #fff6f2;
   --on-primary-container: #634d40;
   --on-surface: #31332c;
@@ -99,6 +101,40 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .chat-bounce-dot {
     animation: none;
+  }
+}
+
+/* 官网 hero 三栏 mockup：选题轻点、气泡入场 */
+@keyframes hero-mock-tap {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(0.96);
+  }
+}
+@keyframes hero-mock-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 写入逐字稿：按钮与右栏高亮一闪 */
+@keyframes hero-mock-flash {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 0 transparent;
+  }
+  45% {
+    box-shadow:
+      inset 0 0 0 2px color-mix(in srgb, var(--primary) 38%, transparent),
+      0 0 0 4px color-mix(in srgb, var(--primary-container) 55%, transparent);
   }
 }
 

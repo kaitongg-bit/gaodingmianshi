@@ -1,13 +1,20 @@
 import Image from "next/image";
-import { getLocale, getTranslations } from "next-intl/server";
-import { Link } from "@/i18n/navigation";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import { brandName } from "@/lib/brand";
 import { DraftNav } from "@/components/DraftNav";
+import { LandingBottomCta } from "@/components/LandingBottomCta";
+import { LandingHeroCtas } from "@/components/LandingHeroCtas";
+import { LandingHeroMockup } from "@/components/LandingHeroMockup";
 import { MaterialIcon } from "@/components/MaterialIcon";
 
-export default async function LandingPage() {
+export default async function LandingPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  setRequestLocale(locale);
   const t = await getTranslations("Landing");
-  const locale = await getLocale();
   const brand = brandName(locale);
   const year = new Date().getFullYear();
 
@@ -15,9 +22,9 @@ export default async function LandingPage() {
     <div className="min-h-full bg-[var(--background)]">
       <DraftNav variant="marketing" />
       <main id="main" className="pt-20">
-        <section className="mx-auto grid max-w-6xl gap-12 px-4 py-16 md:grid-cols-2 md:items-center md:px-8 lg:py-24">
-          <div>
-            <p className="mb-4 text-xs font-medium uppercase tracking-[0.2em] text-[var(--on-surface-variant)]">
+        <section className="mx-auto grid max-w-screen-2xl gap-12 px-6 py-16 md:grid-cols-[minmax(0,1fr)_minmax(0,1.12fr)] md:items-center md:gap-16 md:px-8 lg:py-24">
+          <div className="space-y-6 md:space-y-8">
+            <p className="text-xs font-medium uppercase tracking-[0.2em] text-[var(--on-surface-variant)]">
               {t("heroKicker")}
             </p>
             <h1 className="font-headline text-4xl font-medium leading-tight tracking-tight text-[var(--on-surface)] md:text-5xl lg:text-[3.5rem]">
@@ -27,48 +34,15 @@ export default async function LandingPage() {
               </em>{" "}
               {t("heroTitleRest")}
             </h1>
-            <p className="mt-6 max-w-md text-base leading-relaxed text-[var(--on-surface-variant)]">
+            <p className="max-w-lg text-base leading-relaxed text-[var(--on-surface-variant)] md:text-lg">
               {t("heroSub")}
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link
-                href="/auth/register"
-                className="inline-flex items-center gap-2 rounded-full bg-[var(--primary)] px-6 py-3 text-sm font-medium text-[var(--on-primary)] shadow-[var(--shadow-ambient)] transition hover:opacity-95"
-              >
-                {t("ctaPrimary")}
-                <MaterialIcon name="arrow_forward" className="!text-lg text-[var(--on-primary)]" />
-              </Link>
-              <a
-                href="#journey"
-                className="inline-flex items-center rounded-full border border-[var(--outline-variant)]/40 bg-[var(--surface-container-lowest)] px-6 py-3 text-sm font-medium text-[var(--on-surface)] hover:bg-[var(--surface-container-low)]"
-              >
-                {t("ctaSecondary")}
-              </a>
-            </div>
-            <div className="mt-10 flex items-center gap-3">
-              <div className="flex -space-x-2">
-                {[1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    className="h-9 w-9 rounded-full border-2 border-[var(--background)] bg-[var(--surface-container-high)]"
-                  />
-                ))}
-              </div>
-              <span className="text-xs font-medium uppercase tracking-widest text-[var(--on-surface-variant)]">
-                {t("trusted")}
-              </span>
-            </div>
+            <LandingHeroCtas />
+            <p className="max-w-lg text-xs leading-relaxed text-[var(--on-surface-variant)]">
+              {t("heroNote")}
+            </p>
           </div>
-          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl shadow-[var(--shadow-card)]">
-            <Image
-              src="/landing-hero.png"
-              alt=""
-              fill
-              className="object-cover"
-              priority
-              sizes="(max-width: 768px) 100vw, 50vw"
-            />
-          </div>
+          <LandingHeroMockup />
         </section>
 
         <section
@@ -134,8 +108,8 @@ export default async function LandingPage() {
               <h3 className="font-headline text-2xl font-semibold text-[var(--on-surface)]">
                 {t("bento4")}
               </h3>
-              <p className="mt-4 rounded-xl bg-[var(--surface-container-lowest)] p-6 font-headline text-lg italic text-[var(--on-surface-variant)]">
-                TEAM · WORK · NATURAL
+              <p className="mt-4 rounded-xl bg-[var(--surface-container-lowest)] p-6 font-headline text-lg italic leading-relaxed text-[var(--on-surface-variant)]">
+                {t("bentoQuote")}
               </p>
             </div>
           </div>
@@ -152,12 +126,7 @@ export default async function LandingPage() {
           <p className="mx-auto mt-4 max-w-lg text-sm text-[var(--on-surface-variant)]">
             {t("ctaBottomSub")}
           </p>
-          <Link
-            href="/auth/register"
-            className="mt-8 inline-flex rounded-full bg-[var(--primary)] px-10 py-4 text-base font-medium text-[var(--on-primary)] shadow-[var(--shadow-ambient)] hover:opacity-95"
-          >
-            {t("ctaBottomButton")}
-          </Link>
+          <LandingBottomCta />
           <p className="mt-4 text-xs italic text-[var(--on-surface-variant)]">{t("ctaBottomNote")}</p>
         </section>
 

@@ -95,8 +95,9 @@ export function DraftNav({
           </div>
         ) : (
           <Link
-            href={user ? "/projects" : "/"}
+            href="/"
             className="flex min-w-0 items-center gap-2 md:gap-3"
+            title={brand}
           >
             <BrandMark />
             <span className="truncate font-headline text-lg font-semibold tracking-tight text-[var(--on-surface)] md:text-xl">
@@ -178,11 +179,11 @@ export function DraftNav({
       </div>
 
       <div className="flex shrink-0 items-center gap-2 md:gap-3">
+        {variant === "marketing" ? <LocaleSwitcher /> : null}
         {user ? (
           <NavAccountTray sessionEmail={user.email} sessionDisplayName={user.name} />
         ) : (
           <>
-            <LocaleSwitcher />
             <Link
               href="/auth/login"
               className="rounded-full px-3 py-1.5 text-xs font-medium text-[var(--on-surface-variant)] hover:text-[var(--primary)]"

@@ -40,6 +40,7 @@ export function NavAccountTray({
   sessionDisplayName?: string | null;
 }) {
   const t = useTranslations("UserMenu");
+  const tNav = useTranslations("Nav");
   const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
@@ -220,6 +221,16 @@ export function NavAccountTray({
           </div>
 
           <div className="mt-2 flex flex-col gap-0.5 py-1">
+            <Link
+              href="/projects"
+              locale={locale}
+              role="menuitem"
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium text-[var(--on-surface)] hover:bg-[var(--surface-container-low)]"
+            >
+              <MaterialIcon name="folder_open" className="!text-xl text-[var(--on-surface-variant)]" />
+              {tNav("myProjects")}
+            </Link>
             <div className="flex items-center rounded-lg px-2 py-1.5 hover:bg-[var(--surface-container-low)]">
               <LocaleSwitcher />
             </div>
