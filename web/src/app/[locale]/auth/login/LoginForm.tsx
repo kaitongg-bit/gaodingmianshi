@@ -26,6 +26,12 @@ export function LoginForm() {
     });
     setLoading(false);
     if (error) {
+      const code = error.code ?? "";
+      const msg = error.message.toLowerCase();
+      if (code === "email_not_confirmed" || msg.includes("email not confirmed")) {
+        setErr(t("confirmEmail"));
+        return;
+      }
       setErr(error.message);
       return;
     }

@@ -128,7 +128,7 @@
     "noAccount": "No account?",
     "hasAccount": "Already have an account?",
     "complianceNote": "DraftReady supports interview preparation only — not live interview assistance.",
-    "confirmEmail": "This account still needs email verification (often because it was created while confirmation was required). Check your inbox, or delete the unconfirmed user under Supabase → Authentication → Users and try again.",
+    "confirmEmail": "This account is still marked unconfirmed in the database. Turning off “Confirm email” in Auth settings does not retroactively confirm existing users. In Supabase → Authentication → Users, open the user and use Confirm user (or delete and sign up again). New sign-ups after the change can usually log in immediately.",
     "passwordTooShort": "Password must be at least 6 characters.",
     "registerNoSessionHint": "This email may already be registered — try signing in. If the password fails, reset or delete the user in the Supabase dashboard."
   },
@@ -182,7 +182,6 @@
     "stageAssets": "Stage assets",
     "analysisVer": "Analysis v1.0",
     "resume": "Resume",
-    "uploadResume": "Upload resume",
     "resumeHint": "Experience summary (editable)",
     "resumePlaceholder": "Paste or edit your resume summary…",
     "jd": "Job description",

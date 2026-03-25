@@ -517,18 +517,9 @@ export function PrepClient() {
             </div>
 
             <div className="mt-4 shrink-0 space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex min-w-0 items-center gap-2">
-                  <MaterialIcon name="description" className="shrink-0 text-[var(--primary)]" />
-                  <h2 className="font-headline truncate text-lg md:text-xl">{t("resume")}</h2>
-                </div>
-                <button
-                  type="button"
-                  className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[var(--primary)] px-3 py-1.5 text-xs font-medium text-[var(--primary)] transition hover:bg-[var(--primary)]/5 md:text-sm"
-                >
-                  <MaterialIcon name="upload" className="!text-base" />
-                  {t("uploadResume")}
-                </button>
+              <div className="flex shrink-0 items-center gap-2">
+                <MaterialIcon name="description" className="shrink-0 text-[var(--primary)]" />
+                <h2 className="font-headline text-lg md:text-xl">{t("resume")}</h2>
               </div>
               <div className="space-y-2 rounded-xl bg-[var(--surface-container-low)] p-4">
                 <label className="text-[10px] font-medium uppercase tracking-widest text-[var(--on-surface-variant)] md:text-xs">

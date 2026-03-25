@@ -128,7 +128,7 @@
     "noAccount": "还没有账户？",
     "hasAccount": "已有账户？",
     "complianceNote": "稿定面试仅支持面试前准备，不提供现场辅助。",
-    "confirmEmail": "该账号仍需完成邮箱验证（常见于此前已用本邮箱注册过）。请查收邮件，或在 Supabase → Authentication → Users 中删除该「未验证」用户后重试。",
+    "confirmEmail": "该账号在数据库里仍是「未验证」状态。即便你已在项目里关闭「邮箱确认」，以前注册的用户不会自动变成已验证。请到 Supabase → Authentication → Users 找到该用户，点菜单选择 Confirm user（或删除后重新注册）。若刚关确认，新注册用户一般可直接登录。",
     "passwordTooShort": "密码至少 6 位。",
     "registerNoSessionHint": "该邮箱可能已注册：请改用登录；若密码不对，请在 Supabase 用户列表中重置或删除该用户。"
   },
@@ -182,7 +182,6 @@
     "stageAssets": "阶段材料",
     "analysisVer": "分析 v1.0",
     "resume": "简历",
-    "uploadResume": "上传简历",
     "resumeHint": "经历摘要（可编辑）",
     "resumePlaceholder": "粘贴或编辑简历摘要…",
     "jd": "职位描述",

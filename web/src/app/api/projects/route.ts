@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { clampRoundsCount } from "@/lib/project-rounds";
-import { deriveCompanyRoleFromMaterials, formatProjectDate } from "@/lib/server/project-card";
+import {
+  deriveCompanyRoleFromMaterials,
+  formatProjectDate,
+  resolveDemoProjectRole,
+  resolveProjectListTitle,
+} from "@/lib/server/project-card";
 import { getAuthedSupabase } from "@/lib/server/require-auth";
 import type { AnalysisPayload } from "@/lib/client-session";
 
@@ -54,8 +59,8 @@ export async function GET(req: Request) {
   const cards = list.map((p) => {
     const analysis = (p.analysis_jsonb ?? null) as AnalysisPayload | null;
     const { company, role } = deriveCompanyRoleFromMaterials(p.jd_text ?? "", analysis);
-    const custom = (p.display_title ?? "").trim();
-    const title = custom || company;
+    const title = resolveProjectListTitle(p.display_title, p.jd_text ?? "", company, locale);
+    const roleLabel = resolveDemoProjectRole(p.jd_text ?? "", role, locale);
     const qForP = byProject.get(p.id) ?? [];
     const total = qForP.length;
     const answered = total === 0 ? 0 : qForP.filter((qid) => assistantByQuestion.has(qid)).length;
@@ -64,7 +69,7 @@ export async function GET(req: Request) {
     return {
       id: p.id,
       title,
-      role,
+      role: roleLabel,
       date: formatProjectDate(p.updated_at, locale),
       progress,
       updatedAt: new Date(p.updated_at).getTime(),

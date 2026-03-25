@@ -9,7 +9,7 @@ type Props = {
 export function BrandMark({ className = "" }: Props) {
   return (
     <span
-      className={`relative inline-block h-8 w-8 shrink-0 md:h-9 md:w-9 ${className}`}
+      className={`relative inline-block h-8 w-8 shrink-0 overflow-hidden rounded-md md:h-9 md:w-9 ${className}`}
       aria-hidden
     >
       <Image

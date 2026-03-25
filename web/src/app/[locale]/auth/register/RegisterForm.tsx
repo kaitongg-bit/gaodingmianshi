@@ -82,7 +82,8 @@ export function RegisterForm() {
       return;
     }
 
-    setInfo(t("confirmEmail"));
+    // 无 error 也无 session：少见；若已关邮箱确认，不宜再提示「去邮箱验证」
+    setInfo(t("registerNoSessionHint"));
   }
 
   return (

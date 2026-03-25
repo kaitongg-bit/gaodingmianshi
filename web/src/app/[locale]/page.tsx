@@ -139,7 +139,7 @@ export default async function LandingPage({
                   alt=""
                   width={32}
                   height={32}
-                  className="shrink-0 object-contain"
+                  className="shrink-0 rounded-md object-contain"
                 />
                 <p className="font-headline text-lg font-semibold text-[var(--on-surface)]">{brand}</p>
               </div>
