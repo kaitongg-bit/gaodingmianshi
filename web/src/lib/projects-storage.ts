@@ -16,6 +16,8 @@ export type ProjectCard = {
   date: string;
   progress: number;
   updatedAt: number;
+  /** 后端列表返回：题目条数；0 时主入口进准备页 */
+  questionCount?: number;
   /** 入门占位卡片：无真实会话，点进入准备页 */
   isStarter?: boolean;
 };

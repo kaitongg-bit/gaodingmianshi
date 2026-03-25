@@ -72,6 +72,8 @@ export async function GET(req: Request) {
       role: roleLabel,
       date: formatProjectDate(p.updated_at, locale),
       progress,
+      /** 尚无题目时从列表进入应默认打开准备页（第 0 步） */
+      questionCount: total,
       updatedAt: new Date(p.updated_at).getTime(),
     };
   });

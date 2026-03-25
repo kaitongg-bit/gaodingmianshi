@@ -7,6 +7,7 @@ import { useSearchParams } from "next/navigation";
 import { useRouter } from "@/i18n/navigation";
 import { DraftNav } from "@/components/DraftNav";
 import { MaterialIcon } from "@/components/MaterialIcon";
+import { PrepSpotlight } from "@/components/PrepSpotlight";
 import type { AnalysisPayload } from "@/lib/client-session";
 import { PENDING_ROUND_SESSION_KEY } from "@/lib/projects-storage";
 import {
@@ -14,6 +15,8 @@ import {
   upgradeIfLegacyForkSeedTemplate,
   upgradeLegacyDemoJdEn,
 } from "@/lib/demo-copy";
+import { formatPrepNoteForDisplay } from "@/lib/format-prep-note";
+import { patchPrepCoach, readPrepCoach } from "@/lib/prep-coach";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -65,6 +68,9 @@ export function PrepClient() {
   const genTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [genThinkingStep, setGenThinkingStep] = useState(0);
   const [prepNoteModal, setPrepNoteModal] = useState<null | "focus" | "risk">(null);
+  const [coachTick, setCoachTick] = useState(0);
+  const analyzeBtnRef = useRef<HTMLButtonElement>(null);
+  const generateBtnRef = useRef<HTMLButtonElement>(null);
 
   const handleAddRound = useCallback(async () => {
     if (!projectId) return;
@@ -236,6 +242,10 @@ export function PrepClient() {
         }
         setAnalysis(parsed);
       }
+      const qc = p.question_count ?? 0;
+      if (qc > 0 && projectId) {
+        patchPrepCoach(projectId, { skipGenerate: true });
+      }
       setHydrated(true);
     })();
     return () => {
@@ -340,6 +350,7 @@ export function PrepClient() {
       if (json.data) {
         setAnalysis(json.data);
         if (projectId) {
+          patchPrepCoach(projectId, { skipAnalyze: true });
           const d = json.data;
           const suggest =
             (d.overallFit?.label && String(d.overallFit.label).trim().slice(0, 80)) ||
@@ -440,12 +451,32 @@ export function PrepClient() {
   const score = analysis?.overallFit?.score0to100 ?? 0;
   const dims = analysis?.dimensions ?? [];
 
-  const focusNoteFull = (
-    analysis?.prepNotes?.likelyQuestionThemes ||
-    analysis?.prepNotes?.strengths ||
-    ""
-  ).trim();
-  const riskNoteFull = (analysis?.prepNotes?.gaps || "").trim();
+  const coachPhase = useMemo(() => {
+    if (!projectId || !hydrated || typeof window === "undefined") return null;
+    const s = readPrepCoach(projectId);
+    if (!analysis && !s.skipAnalyze) return "analyze" as const;
+    if (analysis && !s.skipGenerate) return "generate" as const;
+    return null;
+  }, [projectId, hydrated, analysis, coachTick]);
+
+  const dismissCoachAnalyze = useCallback(() => {
+    if (projectId) patchPrepCoach(projectId, { skipAnalyze: true });
+    setCoachTick((n) => n + 1);
+  }, [projectId]);
+
+  const dismissCoachGenerate = useCallback(() => {
+    if (projectId) patchPrepCoach(projectId, { skipGenerate: true });
+    setCoachTick((n) => n + 1);
+  }, [projectId]);
+
+  const focusNoteFull = formatPrepNoteForDisplay(
+    (
+      analysis?.prepNotes?.likelyQuestionThemes ||
+      analysis?.prepNotes?.strengths ||
+      ""
+    ).trim(),
+  );
+  const riskNoteFull = formatPrepNoteForDisplay((analysis?.prepNotes?.gaps || "").trim());
   const focusPreview = focusNoteFull || "—";
   const riskPreview = riskNoteFull || "—";
 
@@ -561,6 +592,7 @@ export function PrepClient() {
                 ) : null}
               </div>
               <button
+                ref={analyzeBtnRef}
                 type="button"
                 onClick={() => void runAnalyze()}
                 disabled={loadingAnalyze}
@@ -622,7 +654,7 @@ export function PrepClient() {
                       </div>
                       {d.detail ? (
                         <p className="line-clamp-3 text-xs leading-relaxed text-[var(--on-surface-variant)]">
-                          {d.detail}
+                          {formatPrepNoteForDisplay(d.detail)}
                         </p>
                       ) : null}
                     </div>
@@ -673,6 +705,7 @@ export function PrepClient() {
                 ) : null}
               </div>
               <button
+                ref={generateBtnRef}
                 type="button"
                 onClick={() => void confirmAndGenerate()}
                 disabled={loadingGen}
@@ -707,6 +740,23 @@ export function PrepClient() {
           </section>
         </div>
       </main>
+
+      <PrepSpotlight
+        open={coachPhase === "analyze"}
+        anchorRef={analyzeBtnRef}
+        title={t("coachAnalyzeTitle")}
+        body={t("coachAnalyzeBody")}
+        dismissLabel={t("coachDismiss")}
+        onDismiss={dismissCoachAnalyze}
+      />
+      <PrepSpotlight
+        open={coachPhase === "generate"}
+        anchorRef={generateBtnRef}
+        title={t("coachGenerateTitle")}
+        body={t("coachGenerateBody")}
+        dismissLabel={t("coachDismiss")}
+        onDismiss={dismissCoachGenerate}
+      />
 
       {prepNoteModal ? (
         <div

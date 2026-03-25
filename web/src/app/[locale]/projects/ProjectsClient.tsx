@@ -194,7 +194,11 @@ export function ProjectsClient() {
               className="group relative rounded-xl border border-[var(--outline-variant)]/10 bg-[var(--surface-container-lowest)] p-px shadow-sm transition hover:shadow-[var(--shadow-card)]"
             >
               <Link
-                href={`/workspace?project=${p.id}`}
+                href={
+                  (p.questionCount ?? 0) === 0
+                    ? `/prep?project=${p.id}`
+                    : `/workspace?project=${p.id}`
+                }
                 className="absolute inset-0 z-0 rounded-[0.6875rem] outline-none ring-inset ring-[var(--primary)] focus-visible:ring-2"
                 aria-label={`${t("openProjectAria")}: ${p.title}`}
               />

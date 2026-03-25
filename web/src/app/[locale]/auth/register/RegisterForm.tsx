@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
+import { GoogleOAuthButton } from "@/components/GoogleOAuthButton";
 import { clearStoredUser } from "@/lib/client-session";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -87,10 +88,17 @@ export function RegisterForm() {
   }
 
   return (
-    <form onSubmit={(e) => void onSubmit(e)} className="space-y-5">
+    <div className="space-y-5">
       {err ? (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-950">{err}</p>
       ) : null}
+      <GoogleOAuthButton onError={(msg) => setErr(msg === "oauth_no_url" ? t("oauthFailed") : msg)} />
+      <div className="flex items-center gap-3">
+        <div className="h-px flex-1 bg-[var(--outline-variant)]/35" />
+        <span className="text-xs text-[var(--on-surface-variant)]">{t("orContinueEmail")}</span>
+        <div className="h-px flex-1 bg-[var(--outline-variant)]/35" />
+      </div>
+      <form onSubmit={(e) => void onSubmit(e)} className="space-y-5">
       {info ? (
         <p className="rounded-lg bg-[var(--primary-container)]/40 px-3 py-2 text-sm text-[var(--on-surface)]">
           {info}
@@ -147,6 +155,7 @@ export function RegisterForm() {
           {t("submitLogin")}
         </Link>
       </p>
-    </form>
+      </form>
+    </div>
   );
 }

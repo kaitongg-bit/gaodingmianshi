@@ -28,5 +28,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next|_vercel|.*\\..*).*)"],
+  /** 排除 auth/callback：OAuth/重置密码回调由独立 Route Handler 换票并 Set-Cookie，不经 next-intl 改写 */
+  matcher: ["/((?!api|_next|_vercel|auth/callback|.*\\..*).*)"],
 };

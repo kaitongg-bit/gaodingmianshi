@@ -1,18 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useSearchParams } from "next/navigation";
 import { Link, useRouter } from "@/i18n/navigation";
+import { GoogleOAuthButton } from "@/components/GoogleOAuthButton";
 import { clearStoredUser } from "@/lib/client-session";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export function LoginForm() {
   const t = useTranslations("Auth");
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (searchParams.get("error") === "auth") {
+      setErr(t("oauthFailed"));
+    }
+  }, [searchParams, t]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,10 +49,17 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={(e) => void onSubmit(e)} className="space-y-5">
+    <div className="space-y-5">
       {err ? (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-950">{err}</p>
       ) : null}
+      <GoogleOAuthButton onError={(msg) => setErr(msg === "oauth_no_url" ? t("oauthFailed") : msg)} />
+      <div className="flex items-center gap-3">
+        <div className="h-px flex-1 bg-[var(--outline-variant)]/35" />
+        <span className="text-xs text-[var(--on-surface-variant)]">{t("orContinueEmail")}</span>
+        <div className="h-px flex-1 bg-[var(--outline-variant)]/35" />
+      </div>
+      <form onSubmit={(e) => void onSubmit(e)} className="space-y-5">
       <div>
         <label className="text-xs font-medium uppercase tracking-widest text-[var(--on-surface-variant)]">
           {t("email")}
@@ -58,9 +74,17 @@ export function LoginForm() {
         />
       </div>
       <div>
-        <label className="text-xs font-medium uppercase tracking-widest text-[var(--on-surface-variant)]">
-          {t("password")}
-        </label>
+        <div className="flex items-center justify-between gap-2">
+          <label className="text-xs font-medium uppercase tracking-widest text-[var(--on-surface-variant)]">
+            {t("password")}
+          </label>
+          <Link
+            href="/auth/forgot-password"
+            className="text-xs font-medium text-[var(--primary)] underline-offset-4 hover:underline"
+          >
+            {t("forgotPassword")}
+          </Link>
+        </div>
         <input
           type="password"
           required
@@ -84,6 +108,7 @@ export function LoginForm() {
           {t("submitRegister")}
         </Link>
       </p>
-    </form>
+      </form>
+    </div>
   );
 }

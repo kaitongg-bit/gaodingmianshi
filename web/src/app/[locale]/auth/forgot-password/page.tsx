@@ -1,10 +1,9 @@
-import { Suspense } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { DraftNav } from "@/components/DraftNav";
-import { LoginForm } from "./LoginForm";
+import { ForgotPasswordForm } from "./ForgotPasswordForm";
 
-export default async function LoginPage({
+export default async function ForgotPasswordPage({
   params,
 }: {
   params: Promise<{ locale: string }>;
@@ -18,19 +17,16 @@ export default async function LoginPage({
       <DraftNav variant="marketing" />
       <main id="main" className="mx-auto flex max-w-md flex-col px-4 pb-24 pt-28">
         <Link
-          href="/"
+          href="/auth/login"
           className="mb-8 text-sm text-[var(--on-surface-variant)] hover:text-[var(--primary)]"
         >
-          ← Home
+          ← {t("backToLogin")}
         </Link>
-        <h1 className="font-headline text-4xl font-medium text-[var(--on-surface)]">{t("loginTitle")}</h1>
-        <p className="mt-2 text-sm text-[var(--on-surface-variant)]">{t("loginSub")}</p>
+        <h1 className="font-headline text-4xl font-medium text-[var(--on-surface)]">{t("forgotTitle")}</h1>
+        <p className="mt-2 text-sm text-[var(--on-surface-variant)]">{t("forgotSub")}</p>
         <div className="mt-10 rounded-2xl bg-[var(--surface-container-low)]/60 p-8 shadow-[0_10px_40px_rgba(49,51,44,0.06)]">
-          <Suspense fallback={<div className="h-48 animate-pulse rounded-xl bg-[var(--surface-container-high)]/30" />}>
-            <LoginForm />
-          </Suspense>
+          <ForgotPasswordForm />
         </div>
-        <p className="mt-6 text-center text-xs italic text-[var(--on-surface-variant)]">{t("complianceNote")}</p>
       </main>
     </div>
   );
