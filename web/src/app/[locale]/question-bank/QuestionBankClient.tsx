@@ -6,6 +6,7 @@ import { Link } from "@/i18n/navigation";
 import { DraftNav } from "@/components/DraftNav";
 import { MaterialIcon } from "@/components/MaterialIcon";
 import { formatPrepNoteForDisplay } from "@/lib/format-prep-note";
+import { trackEvent } from "@/lib/analytics";
 import { QUESTION_TOPIC_ORDER, type QuestionTopicSlug } from "@/lib/question-topics";
 
 type BankItem = {
@@ -169,6 +170,10 @@ export function QuestionBankClient() {
       }
     }
     downloadText(`question-bank-${new Date().toISOString().slice(0, 10)}.md`, lines.join("\n"));
+    trackEvent("export_markdown", {
+      source: "question_bank",
+      selected_count: selectedList.length,
+    });
   }, [selectedList, t, tTopic]);
 
   const totalItems = items.length;

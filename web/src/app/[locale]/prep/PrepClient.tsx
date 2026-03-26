@@ -16,6 +16,7 @@ import {
   upgradeLegacyDemoJdEn,
 } from "@/lib/demo-copy";
 import { formatPrepNoteForDisplay } from "@/lib/format-prep-note";
+import { analyticsErrorCode, trackEvent } from "@/lib/analytics";
 import { patchPrepCoach, readPrepCoach } from "@/lib/prep-coach";
 
 const UUID_RE =
@@ -344,10 +345,14 @@ export function PrepClient() {
         message?: string;
       };
       if (!res.ok) {
+        trackEvent("ai_analyze_fail", {
+          error: analyticsErrorCode(json.error ?? json.message),
+        });
         setError(mapAiError(json.error ?? json.message, t));
         return;
       }
       if (json.data) {
+        trackEvent("ai_analyze_success", {});
         setAnalysis(json.data);
         if (projectId) {
           patchPrepCoach(projectId, { skipAnalyze: true });
@@ -365,6 +370,7 @@ export function PrepClient() {
         }
       }
     } catch {
+      trackEvent("ai_analyze_fail", { error: "network" });
       setError("network");
     } finally {
       setLoadingAnalyze(false);
@@ -419,10 +425,16 @@ export function PrepClient() {
         message?: string;
       };
       if (!res.ok) {
+        trackEvent("ai_generate_questions_fail", {
+          error: analyticsErrorCode(json.error ?? json.message),
+        });
         setError(mapAiError(json.error ?? json.message, t));
         return;
       }
-      if (!json.questions?.length) return;
+      if (!json.questions?.length) {
+        trackEvent("ai_generate_questions_fail", { error: "empty" });
+        return;
+      }
 
       const put = await fetch(`/api/projects/${projectId}/questions`, {
         method: "PUT",
@@ -437,11 +449,19 @@ export function PrepClient() {
         error?: string;
       };
       if (!put.ok) {
+        trackEvent("ai_generate_questions_save_fail", {
+          error: analyticsErrorCode(putJ.error),
+        });
         setError(putJ.error ?? "save_questions_failed");
         return;
       }
+      trackEvent("ai_generate_questions_success", {
+        question_count: json.questions.length,
+        rounds: roundsCount,
+      });
       router.push(`/workspace?project=${projectId}`);
     } catch {
+      trackEvent("ai_generate_questions_fail", { error: "network" });
       setError("network");
     } finally {
       setLoadingGen(false);

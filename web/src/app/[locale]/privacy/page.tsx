@@ -1,5 +1,4 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { AuthGate } from "@/components/AuthGate";
 import { DraftNav } from "@/components/DraftNav";
 import { Link } from "@/i18n/navigation";
 
@@ -15,14 +14,9 @@ export default async function PrivacyPage({
   return (
     <>
       <DraftNav variant="marketing" />
-      <AuthGate>
-        <main id="main" className="mx-auto max-w-lg px-4 pb-24 pt-24">
-        <Link
-          href="/projects"
-          locale={locale}
-          className="text-sm font-medium text-[var(--primary)] hover:underline"
-        >
-          ←
+      <main id="main" className="mx-auto max-w-lg px-4 pb-24 pt-24">
+        <Link href="/" className="text-sm font-medium text-[var(--primary)] hover:underline">
+          ← {t("privacyBackHome")}
         </Link>
         <h1 className="mt-4 font-headline text-2xl font-semibold text-[var(--on-surface)]">
           {t("privacyPolicy")}
@@ -36,8 +30,7 @@ export default async function PrivacyPage({
           <p>{t("privacyPageP5")}</p>
           <p>{t("privacyPageP6")}</p>
         </div>
-        </main>
-      </AuthGate>
+      </main>
     </>
   );
 }

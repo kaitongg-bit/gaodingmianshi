@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useLocale, useTranslations } from "next-intl";
+import { trackEvent } from "@/lib/analytics";
 
 export function BillingPreviewModal({
   open,
@@ -35,6 +36,12 @@ export function BillingPreviewModal({
     return () => {
       document.body.style.overflow = prev;
     };
+  }, [open]);
+
+  useEffect(() => {
+    if (open) {
+      trackEvent("billing_paywall_view", { entry: "credits_modal" });
+    }
   }, [open]);
 
   if (!mounted || !open) return null;

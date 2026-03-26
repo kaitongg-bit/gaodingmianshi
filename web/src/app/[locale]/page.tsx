@@ -5,6 +5,7 @@ import { brandName } from "@/lib/brand";
 import { DraftNav } from "@/components/DraftNav";
 import { LandingBottomCta } from "@/components/LandingBottomCta";
 import { LandingHeroCtas } from "@/components/LandingHeroCtas";
+import { PostEmailAuthHandoff } from "@/components/PostEmailAuthHandoff";
 import { LandingHeroMockup } from "@/components/LandingHeroMockup";
 import { MaterialIcon } from "@/components/MaterialIcon";
 
@@ -22,6 +23,7 @@ export default async function LandingPage({
   return (
     <div className="min-h-full bg-[var(--background)]">
       <DraftNav variant="marketing" />
+      <PostEmailAuthHandoff />
       <main id="main" className="pt-20">
         <section className="mx-auto grid max-w-screen-2xl gap-12 px-6 py-16 md:grid-cols-[minmax(0,1fr)_minmax(0,1.12fr)] md:items-center md:gap-16 md:px-8 lg:py-24">
           <div className="space-y-6 md:space-y-8">
@@ -151,7 +153,7 @@ export default async function LandingPage({
         </section>
 
         <footer className="border-t border-[var(--outline-variant)]/10 bg-[var(--surface)] py-14">
-          <div className="mx-auto grid max-w-6xl gap-10 px-4 md:grid-cols-4 md:px-8">
+          <div className="mx-auto grid max-w-6xl gap-10 px-4 md:grid-cols-3 md:px-8">
             <div>
               <div className="flex items-center gap-2.5">
                 <Image
@@ -163,46 +165,74 @@ export default async function LandingPage({
                 />
                 <p className="font-headline text-lg font-semibold text-[var(--on-surface)]">{brand}</p>
               </div>
-              <p className="mt-2 text-sm text-[var(--on-surface-variant)]">{t("footerTagline")}</p>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--on-surface-variant)]">{t("footerTagline")}</p>
+              <p className="mt-3 text-xs leading-relaxed text-[var(--on-surface-variant)]">{t("footerEarlyNote")}</p>
             </div>
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-[var(--on-surface-variant)]">
-                {t("footerProduct")}
+                {t("footerColProduct")}
               </p>
-              <ul className="mt-3 space-y-2 text-sm text-[var(--on-surface)]">
+              <ul className="mt-3 space-y-2.5 text-sm">
                 <li>
-                  <span className="hover:text-[var(--primary)]">{t("footerFeatures")}</span>
+                  <a
+                    href="#journey"
+                    className="text-[var(--on-surface)] underline-offset-4 hover:text-[var(--primary)] hover:underline"
+                  >
+                    {t("footerLinkHowItWorks")}
+                  </a>
                 </li>
                 <li>
-                  <span className="hover:text-[var(--primary)]">{t("footerPricing")}</span>
+                  <Link
+                    href="/auth/register"
+                    className="text-[var(--on-surface)] underline-offset-4 hover:text-[var(--primary)] hover:underline"
+                  >
+                    {t("footerLinkSignUp")}
+                  </Link>
                 </li>
                 <li>
-                  <span className="hover:text-[var(--primary)]">{t("footerCase")}</span>
+                  <Link
+                    href="/auth/login"
+                    className="text-[var(--on-surface)] underline-offset-4 hover:text-[var(--primary)] hover:underline"
+                  >
+                    {t("footerLinkSignIn")}
+                  </Link>
                 </li>
               </ul>
             </div>
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-[var(--on-surface-variant)]">
-                {t("footerCompany")}
+                {t("footerColCompliance")}
               </p>
-              <ul className="mt-3 space-y-2 text-sm text-[var(--on-surface)]">
-                <li>{t("footerAbout")}</li>
-                <li>{t("footerPhilosophy")}</li>
-                <li>{t("footerPrivacy")}</li>
+              <ul className="mt-3 space-y-2.5 text-sm">
+                <li>
+                  <Link
+                    href="/privacy"
+                    className="text-[var(--on-surface)] underline-offset-4 hover:text-[var(--primary)] hover:underline"
+                  >
+                    {t("footerLinkPrivacy")}
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    href="/support"
+                    className="text-[var(--on-surface)] underline-offset-4 hover:text-[var(--primary)] hover:underline"
+                  >
+                    {t("footerLinkSupport")}
+                  </Link>
+                </li>
               </ul>
-            </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-[var(--on-surface-variant)]">
-                {t("footerConnect")}
-              </p>
-              <p className="mt-3 text-sm text-[var(--on-surface-variant)]">LinkedIn · X</p>
+              <p className="mt-4 text-xs leading-relaxed text-[var(--on-surface-variant)]">{t("footerComplianceNote")}</p>
             </div>
           </div>
-          <div className="mx-auto mt-10 flex max-w-6xl flex-wrap justify-between gap-4 border-t border-[var(--outline-variant)]/10 px-4 pt-8 text-xs text-[var(--on-surface-variant)] md:px-8">
+          <div className="mx-auto mt-10 flex max-w-6xl flex-wrap items-center justify-between gap-4 border-t border-[var(--outline-variant)]/10 px-4 pt-8 text-xs text-[var(--on-surface-variant)] md:px-8">
             <span>{t("footerCopy", { year })}</span>
-            <span className="flex gap-4">
-              <span>{t("footerTerms")}</span>
-              <span>{t("footerCookies")}</span>
+            <span className="flex flex-wrap gap-x-4 gap-y-1">
+              <Link href="/privacy" className="hover:text-[var(--primary)] hover:underline">
+                {t("footerLinkPrivacy")}
+              </Link>
+              <Link href="/support" className="hover:text-[var(--primary)] hover:underline">
+                {t("footerLinkSupport")}
+              </Link>
             </span>
           </div>
         </footer>

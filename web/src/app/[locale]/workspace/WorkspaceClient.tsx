@@ -24,6 +24,7 @@ import {
   QUESTION_TOPIC_SLUGS,
   type QuestionTopicSlug,
 } from "@/lib/question-topics";
+import { analyticsErrorCode, trackEvent } from "@/lib/analytics";
 import { clampRoundsCount, MAX_INTERVIEW_ROUNDS } from "@/lib/project-rounds";
 
 type ChatTurn = WorkspaceChatTurn;
@@ -758,11 +759,14 @@ export function WorkspaceClient() {
   const roundsCount = session?.roundsCount ?? 3;
 
   const importToScript = useCallback(
-    (raw: string, q: WorkspaceQuestion) => {
+    (raw: string, q: WorkspaceQuestion, adoptSource?: "full_reply" | "selection") => {
       const cleaned = cleanScriptContent(raw, q.title);
       if (!cleaned) return;
       setScriptById((s) => ({ ...s, [q.id]: cleaned }));
       setError(null);
+      if (adoptSource) {
+        trackEvent("script_adopt", { source: adoptSource });
+      }
     },
     [],
   );
@@ -772,7 +776,7 @@ export function WorkspaceClient() {
       setError(t("importNoAssistant"));
       return;
     }
-    importToScript(lastAssistantContent, selectedQ);
+    importToScript(lastAssistantContent, selectedQ, "full_reply");
   }, [selectedQ, lastAssistantContent, importToScript, t]);
 
   const importSelection = useCallback(() => {
@@ -782,7 +786,7 @@ export function WorkspaceClient() {
       setError(t("importNeedSelection"));
       return;
     }
-    importToScript(sel, selectedQ);
+    importToScript(sel, selectedQ, "selection");
   }, [selectedQ, importToScript, t]);
 
   const sendChat = useCallback(async () => {
@@ -816,6 +820,9 @@ export function WorkspaceClient() {
         message?: string;
       };
       if (!res.ok) {
+        trackEvent("ai_chat_fail", {
+          error: analyticsErrorCode(json.error ?? json.message),
+        });
         setError(mapChatError(json.error ?? json.message, t));
         setChatById((m) => ({ ...m, [qid]: prev }));
         return;
@@ -823,6 +830,7 @@ export function WorkspaceClient() {
       fullReply = json.reply ?? "";
 
       if (!fullReply.trim()) {
+        trackEvent("ai_chat_fail", { error: "empty_reply" });
         setError(mapChatError("empty_reply", t));
         setChatById((m) => ({ ...m, [qid]: prev }));
         return;
@@ -834,6 +842,7 @@ export function WorkspaceClient() {
         body: JSON.stringify({ role: "user", content: userMsg }),
       });
       if (!u.ok) {
+        trackEvent("ai_chat_fail", { error: "save_user_message_failed" });
         setChatById((m) => ({ ...m, [qid]: prev }));
         setError("save_failed");
         return;
@@ -844,17 +853,26 @@ export function WorkspaceClient() {
         body: JSON.stringify({ role: "assistant", content: fullReply.trim() }),
       });
       if (!a.ok) {
+        trackEvent("ai_chat_fail", { error: "save_assistant_message_failed" });
         setChatById((m) => ({ ...m, [qid]: prev }));
         setError("save_failed");
         return;
       }
 
       const trimmed = fullReply.trim();
+      const userTurnIndex = nextMsgs.filter((m) => m.role === "user").length;
+      const hadAssistantBefore = prev.some((m) => m.role === "assistant");
+      trackEvent("ai_chat_success", {
+        round: selectedQ.round,
+        user_turn_index: userTurnIndex,
+        is_first_assistant_reply: !hadAssistantBefore,
+      });
       setChatById((m) => ({
         ...m,
         [qid]: [...nextMsgs, { role: "assistant" as const, content: trimmed }],
       }));
     } catch {
+      trackEvent("ai_chat_fail", { error: "network" });
       setError("network");
       setChatById((m) => ({ ...m, [qid]: prev }));
     } finally {
@@ -948,6 +966,12 @@ export function WorkspaceClient() {
         : `interview-script-${locale}.md`;
     a.click();
     URL.revokeObjectURL(a.href);
+    trackEvent("export_markdown", {
+      source: "workspace",
+      sort_mode: exportSortMode,
+      scope: exportScope,
+      question_count: questions.length,
+    });
     setExportDialogOpen(false);
   }, [exportSortMode, exportScope, activeRound, questions, scriptById, locale, t]);
 
@@ -981,6 +1005,9 @@ export function WorkspaceClient() {
           items?: { title: string; category: string }[];
         };
         if (!ex.ok) {
+          trackEvent("ai_extract_questions_fail", {
+            error: analyticsErrorCode(ej.error),
+          });
           setError(mapExtractError(ej.error, t));
           return;
         }
@@ -1007,9 +1034,16 @@ export function WorkspaceClient() {
           error?: string;
         };
         if (!res.ok || !j.questions?.length) {
+          trackEvent("ai_extract_questions_save_fail", {
+            error: analyticsErrorCode(j.error),
+          });
           setError(j.error ?? "add_failed");
           return;
         }
+        trackEvent("ai_extract_questions_success", {
+          extracted_count: items.length,
+          created_count: j.questions.length,
+        });
         const created = j.questions.map((q) => ({
           id: q.id,
           round: q.round,
@@ -1064,6 +1098,9 @@ export function WorkspaceClient() {
       setSelectedId(q.id);
       closeAddQuestionModal();
     } catch {
+      if (shouldUseAi) {
+        trackEvent("ai_extract_questions_fail", { error: "network" });
+      }
       setError("network");
     } finally {
       setAddingDraft(false);

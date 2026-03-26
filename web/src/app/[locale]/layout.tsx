@@ -5,6 +5,7 @@ import { getMessages, getTranslations, setRequestLocale } from "next-intl/server
 import { Inter, Newsreader } from "next/font/google";
 import "../globals.css";
 import { routing } from "@/i18n/routing";
+import { AnalyticsScripts } from "@/components/AnalyticsScripts";
 import { PageTransitionShell } from "@/components/PageTransitionShell";
 
 const inter = Inter({
@@ -71,6 +72,7 @@ export default async function LocaleLayout({
         />
       </head>
       <body className="flex min-h-dvh flex-col overflow-x-hidden antialiased selection:bg-[var(--primary-container)] selection:text-[var(--on-primary-container)]">
+        <AnalyticsScripts />
         <NextIntlClientProvider messages={messages}>
           <a
             href="#main"
