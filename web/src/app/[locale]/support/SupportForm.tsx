@@ -2,15 +2,25 @@
 
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
-import { Link } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
+import { trackEvent } from "@/lib/analytics";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { SUPPORT_FEEDBACK_BONUS_CREDITS } from "@/lib/support-feedback-bonus";
+
+type SubmitOutcome = {
+  creditsGranted: number;
+  creditsBalance?: number;
+  bonusState: "disabled" | "granted" | "cooldown" | "error";
+};
 
 export function SupportForm() {
   const t = useTranslations("Support");
+  const router = useRouter();
   const [category, setCategory] = useState<"feedback" | "bug">("feedback");
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
+  const [outcome, setOutcome] = useState<SubmitOutcome | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const [hasSession, setHasSession] = useState(false);
@@ -39,29 +49,87 @@ export function SupportForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ category, body: text }),
       });
-      const j = (await r.json()) as { error?: string };
+      const j = (await r.json()) as {
+        error?: string;
+        creditsGranted?: number;
+        creditsBalance?: number;
+        bonusState?: SubmitOutcome["bonusState"];
+      };
       if (!r.ok) {
         setErr(j.error ?? "error");
         return;
       }
+      const bonusState = j.bonusState ?? "disabled";
+      const og: SubmitOutcome = {
+        creditsGranted: j.creditsGranted ?? 0,
+        creditsBalance: j.creditsBalance,
+        bonusState,
+      };
+      setOutcome(og);
       setDone(true);
       setText("");
+      trackEvent("support_feedback_submitted", {
+        category,
+        credits_granted: og.creditsGranted,
+        bonus_state: bonusState,
+      });
     } finally {
       setBusy(false);
     }
   }
 
+  const thanksLine =
+    outcome == null
+      ? t("thanks")
+      : outcome.bonusState === "granted"
+        ? t("thanksWithBonus", { n: outcome.creditsGranted })
+        : outcome.bonusState === "cooldown"
+          ? t("thanksCooldown")
+          : outcome.bonusState === "error"
+            ? t("thanksBonusError")
+            : t("thanksNoBonusConfig");
+
+  const goBack = () => {
+    if (typeof window === "undefined") return;
+    if (window.history.length > 1) {
+      router.back();
+      return;
+    }
+    void createSupabaseBrowserClient()
+      .auth.getSession()
+      .then(({ data: { session } }) => {
+        router.replace(session ? "/projects" : "/");
+      });
+  };
+
   return (
     <>
-      <Link href="/" className="text-sm font-medium text-[var(--primary)] hover:underline">
-        ← {t("backHome")}
-      </Link>
-      <h1 className="mt-4 font-headline text-2xl font-semibold text-[var(--on-surface)]">
-        {t("title")}
-      </h1>
+      <button
+        type="button"
+        onClick={() => goBack()}
+        className="text-sm font-medium text-[var(--primary)] hover:underline"
+      >
+        ← {t("backPrevious")}
+      </button>
+      <div className="mt-4 flex flex-wrap items-center gap-2.5">
+        <h1 className="font-headline text-2xl font-semibold text-[var(--on-surface)]">{t("title")}</h1>
+        {hasSession ? (
+          <span
+            className="inline-flex shrink-0 items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-950 dark:text-amber-100"
+            title={t("bonusSub", { n: SUPPORT_FEEDBACK_BONUS_CREDITS })}
+          >
+            {t("bonusBadge", { n: SUPPORT_FEEDBACK_BONUS_CREDITS })}
+          </span>
+        ) : null}
+      </div>
       <p className="mt-3 text-sm leading-relaxed text-[var(--on-surface-variant)]">
         {hasSession ? t("intro") : t("introGuest")}
       </p>
+      {hasSession ? (
+        <p className="mt-2 text-xs leading-relaxed text-[var(--on-surface-variant)]">
+          {t("bonusSub", { n: SUPPORT_FEEDBACK_BONUS_CREDITS })}
+        </p>
+      ) : null}
 
       {!sessionReady ? (
         <p className="mt-8 text-sm text-[var(--on-surface-variant)]">…</p>
@@ -83,8 +151,8 @@ export function SupportForm() {
       ) : (
         <>
           {done ? (
-            <p className="mt-6 rounded-xl border border-[var(--primary)]/25 bg-[var(--primary)]/5 px-4 py-3 text-sm text-[var(--on-surface)]">
-              {t("thanks")}
+            <p className="mt-6 rounded-xl border border-[var(--primary)]/25 bg-[var(--primary)]/5 px-4 py-3 text-sm leading-relaxed text-[var(--on-surface)]">
+              {thanksLine}
             </p>
           ) : null}
 

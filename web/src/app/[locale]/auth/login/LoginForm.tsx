@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
 import { Link, useRouter } from "@/i18n/navigation";
 import { GoogleOAuthButton } from "@/components/GoogleOAuthButton";
+import { PasswordInputWithToggle } from "@/components/PasswordInputWithToggle";
 import { clearStoredUser } from "@/lib/client-session";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -85,14 +86,12 @@ export function LoginForm() {
             {t("forgotPassword")}
           </Link>
         </div>
-        <input
-          type="password"
+        <PasswordInputWithToggle
+          value={password}
+          onChange={setPassword}
           required
           minLength={6}
           autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="mt-2 w-full rounded-xl border-0 bg-[var(--surface-container-lowest)] px-4 py-3 text-sm text-[var(--on-surface)] shadow-inner outline-none ring-1 ring-transparent transition focus:ring-[var(--primary)]"
         />
       </div>
       <button

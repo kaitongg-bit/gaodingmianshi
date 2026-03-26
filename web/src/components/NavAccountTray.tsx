@@ -7,6 +7,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { MaterialIcon } from "@/components/MaterialIcon";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { BillingPreviewModal } from "@/components/BillingPreviewModal";
+import { SUPPORT_FEEDBACK_BONUS_CREDITS } from "@/lib/support-feedback-bonus";
 
 function userInitial(
   displayName: string | null | undefined,
@@ -238,11 +239,20 @@ export function NavAccountTray({
               href="/support"
               locale={locale}
               role="menuitem"
+              title={t("contactSupportBonusTitle")}
               onClick={() => setMenuOpen(false)}
-              className="flex items-center gap-2 rounded-lg px-2 py-2 text-sm text-[var(--on-surface)] hover:bg-[var(--surface-container-low)]"
+              className="flex items-center justify-between gap-2 rounded-lg px-2 py-2 text-sm text-[var(--on-surface)] hover:bg-[var(--surface-container-low)]"
             >
-              <MaterialIcon name="help" className="!text-xl text-[var(--on-surface-variant)]" />
-              {t("contactSupport")}
+              <span className="flex min-w-0 items-center gap-2">
+                <MaterialIcon name="help" className="!text-xl shrink-0 text-[var(--on-surface-variant)]" />
+                <span className="truncate">{t("contactSupport")}</span>
+              </span>
+              <span
+                className="shrink-0 rounded-full border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold tabular-nums tracking-tight text-amber-950 dark:text-amber-100"
+                aria-hidden
+              >
+                {t("contactSupportBonusPill", { n: SUPPORT_FEEDBACK_BONUS_CREDITS })}
+              </span>
             </Link>
             <Link
               href="/privacy"

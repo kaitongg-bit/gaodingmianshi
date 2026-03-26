@@ -47,7 +47,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const credit = await consumeCreditsForAi("ai_questions", 1);
+    const credit = await consumeCreditsForAi("ai_questions", 10);
     if (!credit.ok) {
       return NextResponse.json(
         { error: credit.message },
