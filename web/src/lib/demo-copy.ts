@@ -191,3 +191,117 @@ export function getDemoResumeAndJd(locale: string): { resume: string; jd: string
     ? { resume: DEMO_RESUME_EN, jd: DEMO_JD_EN }
     : { resume: DEMO_RESUME, jd: DEMO_JD };
 }
+
+/**
+ * 当数据库里仍是「整套中文或英文演示原文」，而当前界面语言为另一种时，换成与界面一致的一套。
+ * 仅在与 `getDemoResumeAndJd('zh'|'en')` 全文一致时替换，避免覆盖用户自行修改过的内容。
+ */
+export function syncDemoBundleToLocale(
+  resume: string,
+  jd: string,
+  locale: string,
+): { resume: string; jd: string } | null {
+  const zh = getDemoResumeAndJd("zh");
+  const en = getDemoResumeAndJd("en");
+  const nr = normalizeDemoText(resume);
+  const nj = normalizeDemoText(jd);
+
+  if (locale === "en") {
+    if (nr === normalizeDemoText(zh.resume) && nj === normalizeDemoText(zh.jd)) {
+      return en;
+    }
+  } else if (locale === "zh") {
+    if (nr === normalizeDemoText(en.resume) && nj === normalizeDemoText(en.jd)) {
+      return zh;
+    }
+  }
+  return null;
+}
+
+/**
+ * 与 `seed_system_template_if_missing` fork 的初始题目一致（3 题）；仅在与整套中文或英文原文一致时随 locale 互换。
+ */
+export const DEMO_SEED_QUESTIONS_ZH = [
+  {
+    round: 1,
+    title: "请做一段简短的自我介绍，并说明你为什么适合这个岗位。",
+  },
+  {
+    round: 1,
+    title: "讲一个你推动跨团队达成一致、并最终上线落地的例子。",
+  },
+  {
+    round: 2,
+    title: "如果业务方坚持加需求导致排期爆炸，你会怎么处理？",
+  },
+] as const;
+
+export const DEMO_SEED_QUESTIONS_EN = [
+  {
+    round: 1,
+    title:
+      "Give a brief self-introduction and explain why you are a strong fit for this role.",
+  },
+  {
+    round: 1,
+    title:
+      "Tell me about a time you aligned multiple teams and shipped something end-to-end.",
+  },
+  {
+    round: 2,
+    title:
+      "If stakeholders keep adding scope and the timeline is breaking, how would you handle it?",
+  },
+] as const;
+
+function demoQuestionKey(round: number, title: string): string {
+  return `${round}::${normalizeDemoText(title)}`;
+}
+
+/**
+ * 当题目集合与 `DEMO_SEED_QUESTIONS_ZH` 或 `DEMO_SEED_QUESTIONS_EN` 完全一致（按 round + 规范化标题）时，返回另一语言的标题更新。
+ */
+export function syncDemoSeedQuestionsToLocale(
+  questions: { id: string; round: number; title: string }[],
+  locale: string,
+): { id: string; title: string }[] | null {
+  const n = DEMO_SEED_QUESTIONS_ZH.length;
+  if (questions.length !== n) return null;
+
+  const zhKeySet = new Set(
+    DEMO_SEED_QUESTIONS_ZH.map((q) => demoQuestionKey(q.round, q.title)),
+  );
+  const enKeySet = new Set(
+    DEMO_SEED_QUESTIONS_EN.map((q) => demoQuestionKey(q.round, q.title)),
+  );
+  const currentKeys = questions.map((q) => demoQuestionKey(q.round, q.title));
+  const currentSet = new Set(currentKeys);
+  if (currentSet.size !== n) return null;
+
+  const buildUpdates = (
+    fromZh: boolean,
+  ): { id: string; title: string }[] | null => {
+    const source = fromZh ? DEMO_SEED_QUESTIONS_ZH : DEMO_SEED_QUESTIONS_EN;
+    const target = fromZh ? DEMO_SEED_QUESTIONS_EN : DEMO_SEED_QUESTIONS_ZH;
+    const sourceKeys = fromZh ? zhKeySet : enKeySet;
+    for (const k of sourceKeys) {
+      if (!currentSet.has(k)) return null;
+    }
+    const map = new Map<string, string>();
+    for (let i = 0; i < n; i++) {
+      map.set(demoQuestionKey(source[i].round, source[i].title), target[i].title);
+    }
+    return questions.map((q) => ({
+      id: q.id,
+      title: map.get(demoQuestionKey(q.round, q.title))!,
+    }));
+  };
+
+  if (locale === "en") {
+    return buildUpdates(true);
+  }
+  if (locale === "zh") {
+    return buildUpdates(false);
+  }
+  return null;
+}

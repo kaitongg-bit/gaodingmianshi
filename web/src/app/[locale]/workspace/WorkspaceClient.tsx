@@ -25,6 +25,7 @@ import {
   type QuestionTopicSlug,
 } from "@/lib/question-topics";
 import { analyticsErrorCode, trackEvent } from "@/lib/analytics";
+import { syncDemoBundleToLocale, syncDemoSeedQuestionsToLocale } from "@/lib/demo-copy";
 import { clampRoundsCount, MAX_INTERVIEW_ROUNDS } from "@/lib/project-rounds";
 
 type ChatTurn = WorkspaceChatTurn;
@@ -220,6 +221,52 @@ export function WorkspaceClient() {
   const [editTopic, setEditTopic] = useState<QuestionTopicSlug>("other");
   const [chatPasteNotice, setChatPasteNotice] = useState<string | null>(null);
 
+  /** 演示项目：若库里仍是另一语言的整套 demo，与当前 locale 对齐并 PATCH 持久化 */
+  const syncDemoResumeJdIfNeeded = useCallback(
+    (resumeText: string, jdText: string) => {
+      const demoSynced = syncDemoBundleToLocale(resumeText, jdText, locale);
+      if (!demoSynced || !projectQuery) {
+        return { resume: resumeText, jd: jdText };
+      }
+      void fetch(`/api/projects/${projectQuery}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resume_text: demoSynced.resume,
+          jd_text: demoSynced.jd,
+        }),
+        credentials: "same-origin",
+      });
+      return { resume: demoSynced.resume, jd: demoSynced.jd };
+    },
+    [locale, projectQuery],
+  );
+
+  /** 系统模板 fork 的 3 道种子题：与另一语言整套一致时替换标题并 PATCH */
+  const syncDemoQuestionsIfNeeded = useCallback(
+    (qsIn: WorkspaceQuestion[]): WorkspaceQuestion[] => {
+      if (!projectQuery) return qsIn;
+      const updates = syncDemoSeedQuestionsToLocale(
+        qsIn.map((q) => ({ id: q.id, round: q.round, title: q.title })),
+        locale,
+      );
+      if (!updates) return qsIn;
+      const titleById = new Map(updates.map((u) => [u.id, u.title]));
+      for (const u of updates) {
+        void fetch(`/api/projects/${projectQuery}/questions/${u.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: u.title }),
+          credentials: "same-origin",
+        });
+      }
+      return qsIn.map((q) =>
+        titleById.has(q.id) ? { ...q, title: titleById.get(q.id)! } : q,
+      );
+    },
+    [locale, projectQuery],
+  );
+
   const reloadQuestionsOnly = useCallback(async () => {
     if (!projectQuery || !UUID_RE.test(projectQuery)) return;
     const r = await fetch(`/api/projects/${projectQuery}/workspace`);
@@ -229,7 +276,7 @@ export function WorkspaceClient() {
       error?: string;
     };
     if (!r.ok || !j.questions?.length) return;
-    const qs = j.questions.map((q) => ({ ...q }));
+    const qs = syncDemoQuestionsIfNeeded(j.questions.map((q) => ({ ...q })));
     setQuestions(qs);
     setSession((prev) =>
       prev && j.project
@@ -243,7 +290,7 @@ export function WorkspaceClient() {
           }
         : prev,
     );
-  }, [projectQuery]);
+  }, [projectQuery, syncDemoQuestionsIfNeeded]);
 
   const onRoundSelect = useCallback(
     (r: number) => {
@@ -323,12 +370,16 @@ export function WorkspaceClient() {
           return;
         }
         const proj = j.project;
-        const list = j.questions ?? [];
+        const list = syncDemoQuestionsIfNeeded(j.questions ?? []);
         const roundsCoerced = clampRoundsCount(Number(proj.rounds_count) || 3);
+        const { resume: resumeText, jd: jdText } = syncDemoResumeJdIfNeeded(
+          proj.resume_text ?? "",
+          proj.jd_text ?? "",
+        );
         const ws: WorkspaceSession = {
           projectId: proj.id,
-          resume: proj.resume_text ?? "",
-          jd: proj.jd_text ?? "",
+          resume: resumeText,
+          jd: jdText,
           roundsCount: roundsCoerced,
           analysis: (proj.analysis_jsonb ?? null) as AnalysisPayload | null,
           questions: list,
@@ -353,7 +404,7 @@ export function WorkspaceClient() {
         setRemoveRoundBusy(false);
       }
     },
-    [projectQuery, session, t, tNav],
+    [projectQuery, session, syncDemoResumeJdIfNeeded, syncDemoQuestionsIfNeeded, t, tNav],
   );
 
   useEffect(() => {
@@ -412,12 +463,16 @@ export function WorkspaceClient() {
 
       const proj = j.project;
       if (proj) {
-        const qs = j.questions ?? [];
+        const qs = syncDemoQuestionsIfNeeded(j.questions ?? []);
         const roundsCoerced = clampRoundsCount(Number(proj.rounds_count) || 3);
+        const { resume: resumeText, jd: jdText } = syncDemoResumeJdIfNeeded(
+          proj.resume_text ?? "",
+          proj.jd_text ?? "",
+        );
         const ws: WorkspaceSession = {
           projectId: proj.id,
-          resume: proj.resume_text ?? "",
-          jd: proj.jd_text ?? "",
+          resume: resumeText,
+          jd: jdText,
           roundsCount: roundsCoerced,
           analysis: (proj.analysis_jsonb ?? null) as AnalysisPayload | null,
           questions: qs,
@@ -507,7 +562,7 @@ export function WorkspaceClient() {
     return () => {
       cancelled = true;
     };
-  }, [projectQuery, loadAttempt]);
+  }, [projectQuery, loadAttempt, locale, syncDemoResumeJdIfNeeded, syncDemoQuestionsIfNeeded]);
 
   useEffect(() => {
     if (!cloudReady || !projectQuery) return;

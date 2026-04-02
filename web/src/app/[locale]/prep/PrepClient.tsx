@@ -12,6 +12,8 @@ import type { AnalysisPayload } from "@/lib/client-session";
 import { PENDING_ROUND_SESSION_KEY } from "@/lib/projects-storage";
 import {
   getDemoResumeAndJd,
+  syncDemoBundleToLocale,
+  syncDemoSeedQuestionsToLocale,
   upgradeIfLegacyForkSeedTemplate,
   upgradeLegacyDemoJdEn,
 } from "@/lib/demo-copy";
@@ -199,6 +201,7 @@ export function PrepClient() {
         p.jd_text ?? "",
         locale,
       );
+      const demoForUi = syncDemoBundleToLocale(p.resume_text ?? "", p.jd_text ?? "", locale);
       const jdUpgraded = upgradeLegacyDemoJdEn(p.jd_text ?? "");
       if (forkDemo) {
         setResume(forkDemo.resume);
@@ -209,6 +212,17 @@ export function PrepClient() {
           body: JSON.stringify({
             resume_text: forkDemo.resume,
             jd_text: forkDemo.jd,
+          }),
+        });
+      } else if (demoForUi) {
+        setResume(demoForUi.resume);
+        setJd(demoForUi.jd);
+        void fetch(`/api/projects/${projectId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            resume_text: demoForUi.resume,
+            jd_text: demoForUi.jd,
           }),
         });
       } else if (jdUpgraded) {
@@ -246,6 +260,29 @@ export function PrepClient() {
       const qc = p.question_count ?? 0;
       if (qc > 0 && projectId) {
         patchPrepCoach(projectId, { skipGenerate: true });
+      }
+      if (qc === 3 && projectId) {
+        void (async () => {
+          const wr = await fetch(`/api/projects/${projectId}/workspace`, {
+            credentials: "same-origin",
+          });
+          if (cancelled || !wr.ok) return;
+          const wj = (await wr.json()) as {
+            questions?: { id: string; round: number; title: string }[];
+          };
+          const list = wj.questions;
+          if (!Array.isArray(list) || list.length !== 3) return;
+          const updates = syncDemoSeedQuestionsToLocale(list, locale);
+          if (!updates) return;
+          for (const u of updates) {
+            void fetch(`/api/projects/${projectId}/questions/${u.id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ title: u.title }),
+              credentials: "same-origin",
+            });
+          }
+        })();
       }
       setHydrated(true);
     })();
