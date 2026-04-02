@@ -176,7 +176,9 @@ export function PrepClient() {
     let cancelled = false;
     setHydrated(false);
     void (async () => {
-      const r = await fetch(`/api/projects/${projectId}`);
+      const r = await fetch(
+        `/api/projects/${projectId}?locale=${encodeURIComponent(locale)}`,
+      );
       const j = (await r.json()) as {
         project?: {
           resume_text?: string;
@@ -263,9 +265,12 @@ export function PrepClient() {
       }
       if (qc === 3 && projectId) {
         void (async () => {
-          const wr = await fetch(`/api/projects/${projectId}/workspace`, {
-            credentials: "same-origin",
-          });
+          const wr = await fetch(
+            `/api/projects/${projectId}/workspace?locale=${encodeURIComponent(locale)}`,
+            {
+              credentials: "same-origin",
+            },
+          );
           if (cancelled || !wr.ok) return;
           const wj = (await wr.json()) as {
             questions?: { id: string; round: number; title: string }[];
@@ -432,7 +437,9 @@ export function PrepClient() {
 
       let existingQuestionTitles: string[] = [];
       try {
-        const wr = await fetch(`/api/projects/${projectId}/workspace`);
+        const wr = await fetch(
+          `/api/projects/${projectId}/workspace?locale=${encodeURIComponent(locale)}`,
+        );
         const wj = (await wr.json()) as { questions?: { title?: string }[] };
         if (wr.ok && Array.isArray(wj.questions)) {
           existingQuestionTitles = wj.questions

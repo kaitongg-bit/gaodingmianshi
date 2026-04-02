@@ -208,7 +208,7 @@ export function ProjectsClient() {
             >
               <Link
                 href={
-                  (p.questionCount ?? 0) === 0
+                  p.progress === 0
                     ? `/prep?project=${p.id}`
                     : `/workspace?project=${p.id}`
                 }

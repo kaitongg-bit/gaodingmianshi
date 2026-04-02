@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { parseScriptsFromTranscript } from "@/lib/transcript-scripts";
+import {
+  applyDemoLocaleSync,
+  resolveAppLocaleForSync,
+} from "@/lib/server/demo-locale-sync";
 import { getAuthedSupabase } from "@/lib/server/require-auth";
 import { isPostgresUndefinedColumn, QUESTIONS_SELECT_MINIMAL } from "@/lib/questions-compat";
 import type { WorkspaceChatTurn } from "@/lib/client-session";
@@ -48,12 +52,14 @@ function mapQuestionRows(list: QuestionRow[]) {
   }));
 }
 
-export async function GET(_req: Request, ctx: Ctx) {
+export async function GET(req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
   const { supabase, user } = await getAuthedSupabase();
   if (!user) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+
+  const queryLocale = new URL(req.url).searchParams.get("locale");
 
   const { data: project, error: pErr } = await supabase
     .from("projects")
@@ -66,6 +72,17 @@ export async function GET(_req: Request, ctx: Ctx) {
   if (pErr || !project || project.user_id !== user.id) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("locale")
+    .eq("id", user.id)
+    .maybeSingle();
+  const appLocale = resolveAppLocaleForSync(
+    queryLocale,
+    profile?.locale as string | null | undefined,
+  );
+  await applyDemoLocaleSync(supabase, appLocale, project, null);
 
   const q1 = await supabase
     .from("questions")
@@ -106,6 +123,8 @@ export async function GET(_req: Request, ctx: Ctx) {
   }
 
   const qList = (questions ?? []) as QuestionRow[];
+  await applyDemoLocaleSync(supabase, appLocale, project, qList);
+
   const qids = qList.map((q) => q.id);
 
   const { data: messages, error: mErr } =

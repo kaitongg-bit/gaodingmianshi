@@ -269,7 +269,9 @@ export function WorkspaceClient() {
 
   const reloadQuestionsOnly = useCallback(async () => {
     if (!projectQuery || !UUID_RE.test(projectQuery)) return;
-    const r = await fetch(`/api/projects/${projectQuery}/workspace`);
+    const r = await fetch(
+      `/api/projects/${projectQuery}/workspace?locale=${encodeURIComponent(locale)}`,
+    );
     const j = (await r.json()) as {
       project?: { resume_text: string; jd_text: string; rounds_count: number; analysis_jsonb: unknown };
       questions?: WorkspaceQuestion[];
@@ -290,7 +292,7 @@ export function WorkspaceClient() {
           }
         : prev,
     );
-  }, [projectQuery, syncDemoQuestionsIfNeeded]);
+  }, [locale, projectQuery, syncDemoQuestionsIfNeeded]);
 
   const onRoundSelect = useCallback(
     (r: number) => {
@@ -349,9 +351,12 @@ export function WorkspaceClient() {
           );
           return;
         }
-        const r = await fetch(`/api/projects/${projectQuery}/workspace`, {
-          credentials: "same-origin",
-        });
+        const r = await fetch(
+          `/api/projects/${projectQuery}/workspace?locale=${encodeURIComponent(locale)}`,
+          {
+            credentials: "same-origin",
+          },
+        );
         const j = (await r.json()) as {
           project?: {
             id: string;
@@ -404,7 +409,7 @@ export function WorkspaceClient() {
         setRemoveRoundBusy(false);
       }
     },
-    [projectQuery, session, syncDemoResumeJdIfNeeded, syncDemoQuestionsIfNeeded, t, tNav],
+    [locale, projectQuery, session, syncDemoResumeJdIfNeeded, syncDemoQuestionsIfNeeded, t, tNav],
   );
 
   useEffect(() => {
@@ -419,9 +424,12 @@ export function WorkspaceClient() {
 
     async function loadWorkspace(after401Refresh: boolean): Promise<void> {
       if (cancelled) return;
-      const r = await fetch(`/api/projects/${projectQuery}/workspace`, {
-        credentials: "same-origin",
-      });
+      const r = await fetch(
+        `/api/projects/${projectQuery}/workspace?locale=${encodeURIComponent(locale)}`,
+        {
+          credentials: "same-origin",
+        },
+      );
       if (cancelled) return;
 
       type BootJson = {

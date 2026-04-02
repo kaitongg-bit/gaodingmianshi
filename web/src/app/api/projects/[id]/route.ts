@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { clampRoundsCount } from "@/lib/project-rounds";
+import {
+  applyDemoLocaleSync,
+  resolveAppLocaleForSync,
+} from "@/lib/server/demo-locale-sync";
 import { getAuthedSupabase } from "@/lib/server/require-auth";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -20,7 +24,7 @@ async function assertProjectOwner(
   return true;
 }
 
-export async function GET(_req: Request, ctx: Ctx) {
+export async function GET(req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
   const { supabase, user } = await getAuthedSupabase();
   if (!user) {
@@ -31,6 +35,8 @@ export async function GET(_req: Request, ctx: Ctx) {
   if (!ok) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
+
+  const queryLocale = new URL(req.url).searchParams.get("locale");
 
   const { data: project, error } = await supabase
     .from("projects")
@@ -43,6 +49,18 @@ export async function GET(_req: Request, ctx: Ctx) {
   if (error || !project) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("locale")
+    .eq("id", user.id)
+    .maybeSingle();
+  await applyDemoLocaleSync(
+    supabase,
+    resolveAppLocaleForSync(queryLocale, profile?.locale as string | null | undefined),
+    project,
+    null,
+  );
 
   const { count, error: countErr } = await supabase
     .from("questions")
