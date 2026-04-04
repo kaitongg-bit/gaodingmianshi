@@ -2,11 +2,13 @@
 
 import Script from "next/script";
 
-const CLARITY_ID = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID?.trim();
+/** 默认使用稿定面试 Clarity 项目；可用 NEXT_PUBLIC_CLARITY_PROJECT_ID 覆盖；设为空字符串可关闭 */
+const envClarity = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID;
+const CLARITY_ID =
+  (envClarity !== undefined ? envClarity.trim() : "w67f77050w") || null;
 
 /**
- * 在 Vercel / .env 中设置 NEXT_PUBLIC_CLARITY_PROJECT_ID 后注入 Clarity。
- * 未设置时不加载脚本，埋点仍会通过 dataLayer + dev console 工作。
+ * Microsoft Clarity（afterInteractive）。显式 `NEXT_PUBLIC_CLARITY_PROJECT_ID=` 时不加载。
  */
 export function AnalyticsScripts() {
   if (!CLARITY_ID) return null;

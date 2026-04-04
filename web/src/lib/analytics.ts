@@ -1,6 +1,6 @@
 /**
  * 客户端埋点：写入 `window.dataLayer`（便于接 GTM / GA4），并在 Microsoft Clarity
- * 加载后调用 `clarity("event", name)`。不设 NEXT_PUBLIC 时仅开发环境 console。
+ * 加载后调用 `clarity("event", name)`。Clarity 未加载时仍写 dataLayer；开发环境额外 console。
  *
  * 指标对照（在分析工具里用漏斗 / 自定义报告计算比例即可）：
  * - 订阅意向：`billing_paywall_view`
