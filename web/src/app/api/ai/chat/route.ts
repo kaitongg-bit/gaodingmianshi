@@ -104,7 +104,42 @@ User (latest message): ${lastUser.content.trim()}
 `;
 
     const result = await model.generateContent(prompt);
-    const text = result.response.text().trim();
+    const response = result.response;
+
+    type PromptFeedback = { blockReason?: string; blockReasonMessage?: string };
+    const feedback = (response as { promptFeedback?: PromptFeedback }).promptFeedback;
+    if (feedback?.blockReason) {
+      console.warn("[api/ai/chat] prompt blocked:", feedback.blockReason, feedback.blockReasonMessage ?? "");
+      return NextResponse.json(
+        {
+          error: "chat_blocked",
+          message: feedback.blockReasonMessage ?? feedback.blockReason,
+        },
+        { status: 422 },
+      );
+    }
+
+    let text: string;
+    try {
+      text = response.text().trim();
+    } catch (textErr) {
+      const msg = textErr instanceof Error ? textErr.message : String(textErr);
+      const c0 = (response as { candidates?: { finishReason?: string }[] }).candidates?.[0];
+      console.error(
+        "[api/ai/chat] response.text() failed:",
+        msg,
+        "finishReason:",
+        c0?.finishReason ?? "(none)",
+      );
+      return NextResponse.json(
+        {
+          error: "chat_empty_response",
+          message: msg,
+          finishReason: c0?.finishReason,
+        },
+        { status: 502 },
+      );
+    }
 
     return NextResponse.json({ ok: true, reply: text });
   } catch (e) {
@@ -115,6 +150,7 @@ User (latest message): ${lastUser.content.trim()}
       );
     }
     const message = e instanceof Error ? e.message : "unknown_error";
+    console.error("[api/ai/chat]", message, e);
     return NextResponse.json({ error: "chat_failed", message }, { status: 500 });
   }
 }

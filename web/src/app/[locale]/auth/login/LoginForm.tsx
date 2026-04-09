@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { Link, useRouter } from "@/i18n/navigation";
 import { GoogleOAuthButton } from "@/components/GoogleOAuthButton";
 import { PasswordInputWithToggle } from "@/components/PasswordInputWithToggle";
+import { messageForOAuthCallbackReason } from "@/lib/auth-oauth-error";
 import { clearStoredUser } from "@/lib/client-session";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -20,7 +21,7 @@ export function LoginForm() {
 
   useEffect(() => {
     if (searchParams.get("error") === "auth") {
-      setErr(t("oauthFailed"));
+      setErr(messageForOAuthCallbackReason(searchParams.get("reason"), t));
     }
   }, [searchParams, t]);
 
@@ -54,7 +55,9 @@ export function LoginForm() {
       {err ? (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-950">{err}</p>
       ) : null}
-      <GoogleOAuthButton onError={(msg) => setErr(msg === "oauth_no_url" ? t("oauthFailed") : msg)} />
+      <GoogleOAuthButton
+        onError={(msg) => setErr(msg === "oauth_no_url" ? t("oauthFailedUnknown") : msg)}
+      />
       <div className="flex items-center gap-3">
         <div className="h-px flex-1 bg-[var(--outline-variant)]/35" />
         <span className="text-xs text-[var(--on-surface-variant)]">{t("orContinueEmail")}</span>

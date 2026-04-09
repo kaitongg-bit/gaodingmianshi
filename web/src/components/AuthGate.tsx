@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useLocale } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
+import { AcquisitionSurveyModal } from "@/components/AcquisitionSurveyModal";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type GateState = "pending" | "in" | "out";
@@ -64,5 +65,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <AcquisitionSurveyModal />
+    </>
+  );
 }

@@ -79,6 +79,12 @@ export function NavAccountTray({
   }, [refreshMe]);
 
   useEffect(() => {
+    const onRefresh = () => void refreshMe();
+    window.addEventListener("draftready:me-refresh", onRefresh);
+    return () => window.removeEventListener("draftready:me-refresh", onRefresh);
+  }, [refreshMe]);
+
+  useEffect(() => {
     if (!menuOpen) return;
     function onDoc(e: MouseEvent) {
       const node = e.target as Node;
@@ -99,6 +105,11 @@ export function NavAccountTray({
     await createSupabaseBrowserClient().auth.signOut();
     setMenuOpen(false);
     setMe(null);
+    try {
+      sessionStorage.removeItem("acquisition_survey_snooze");
+    } catch {
+      /* ignore */
+    }
     router.replace("/", { locale });
   }
 

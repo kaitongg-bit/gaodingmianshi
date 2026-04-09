@@ -1,22 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import { useSearchParams } from "next/navigation";
 import { Link, useRouter } from "@/i18n/navigation";
 import { GoogleOAuthButton } from "@/components/GoogleOAuthButton";
 import { PasswordInputWithToggle } from "@/components/PasswordInputWithToggle";
+import { messageForOAuthCallbackReason } from "@/lib/auth-oauth-error";
 import { clearStoredUser } from "@/lib/client-session";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export function RegisterForm() {
   const t = useTranslations("Auth");
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (searchParams.get("error") === "auth") {
+      setErr(messageForOAuthCallbackReason(searchParams.get("reason"), t));
+    }
+  }, [searchParams, t]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -93,7 +102,9 @@ export function RegisterForm() {
       {err ? (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-950">{err}</p>
       ) : null}
-      <GoogleOAuthButton onError={(msg) => setErr(msg === "oauth_no_url" ? t("oauthFailed") : msg)} />
+      <GoogleOAuthButton
+        onError={(msg) => setErr(msg === "oauth_no_url" ? t("oauthFailedUnknown") : msg)}
+      />
       <div className="flex items-center gap-3">
         <div className="h-px flex-1 bg-[var(--outline-variant)]/35" />
         <span className="text-xs text-[var(--on-surface-variant)]">{t("orContinueEmail")}</span>

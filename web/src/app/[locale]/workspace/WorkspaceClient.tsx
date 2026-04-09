@@ -17,7 +17,6 @@ import type {
   WorkspaceSession,
 } from "@/lib/client-session";
 import { PENDING_ROUND_SESSION_KEY } from "@/lib/projects-storage";
-import { cleanScriptContent } from "@/lib/script-clean";
 import { serializeScriptsToTranscript } from "@/lib/transcript-scripts";
 import {
   QUESTION_TOPIC_ORDER,
@@ -43,6 +42,8 @@ function mapChatError(
   if (err === "insufficient_credits") return t("insufficientCredits");
   if (err === "unauthorized") return t("loginRequired");
   if (err === "empty_reply") return t("chatEmptyReply");
+  if (err === "chat_blocked") return t("chatBlocked");
+  if (err === "chat_empty_response") return t("chatEmptyResponse");
   if (err === "chat_failed") return t("chatStreamFailed");
   return err ?? "error";
 }
@@ -763,7 +764,7 @@ export function WorkspaceClient() {
   );
 
   const onChatPaste = useCallback(
-    (e: React.ClipboardEvent<HTMLInputElement>) => {
+    (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
       const items = e.clipboardData?.items;
       if (!items?.length) return;
       for (let i = 0; i < items.length; i++) {
@@ -810,138 +811,108 @@ export function WorkspaceClient() {
     [questions, selectedId],
   );
 
-  const lastAssistantContent = useMemo(() => {
-    if (!selectedQ) return null;
-    const msgs = chatById[selectedQ.id] ?? [];
-    for (let i = msgs.length - 1; i >= 0; i--) {
-      if (msgs[i].role === "assistant") return msgs[i].content;
-    }
-    return null;
-  }, [selectedQ, chatById]);
-
   const roundsCount = session?.roundsCount ?? 3;
 
-  const importToScript = useCallback(
-    (raw: string, q: WorkspaceQuestion, adoptSource?: "full_reply" | "selection") => {
-      const cleaned = cleanScriptContent(raw, q.title);
-      if (!cleaned) return;
-      setScriptById((s) => ({ ...s, [q.id]: cleaned }));
+  const sendChatMessage = useCallback(
+    async (rawUserMsg: string) => {
+      if (!selectedQ) return;
+      const userMsg = rawUserMsg.trim();
+      if (!userMsg) return;
       setError(null);
-      if (adoptSource) {
-        trackEvent("script_adopt", { source: adoptSource });
+      const qid = selectedQ.id;
+      const prev = chatById[qid] ?? [];
+      const nextMsgs = [...prev, { role: "user" as const, content: userMsg }];
+      setChatById((m) => ({ ...m, [qid]: nextMsgs }));
+      setLoadingChat(true);
+      let fullReply = "";
+      try {
+        const res = await fetch("/api/ai/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            questionTitle: selectedQ.title,
+            messages: nextMsgs,
+            locale,
+            jd: session?.jd ?? "",
+            resume: session?.resume ?? "",
+            round: selectedQ.round,
+          }),
+        });
+        const json = (await res.json()) as {
+          ok?: boolean;
+          reply?: string;
+          error?: string;
+          message?: string;
+        };
+        if (!res.ok) {
+          trackEvent("ai_chat_fail", {
+            error: analyticsErrorCode(json.error ?? json.message),
+          });
+          setError(mapChatError(json.error ?? json.message, t));
+          setChatById((m) => ({ ...m, [qid]: prev }));
+          return;
+        }
+        fullReply = json.reply ?? "";
+
+        if (!fullReply.trim()) {
+          trackEvent("ai_chat_fail", { error: "empty_reply" });
+          setError(mapChatError("empty_reply", t));
+          setChatById((m) => ({ ...m, [qid]: prev }));
+          return;
+        }
+
+        const u = await fetch(`/api/questions/${qid}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: "user", content: userMsg }),
+        });
+        if (!u.ok) {
+          trackEvent("ai_chat_fail", { error: "save_user_message_failed" });
+          setChatById((m) => ({ ...m, [qid]: prev }));
+          setError("save_failed");
+          return;
+        }
+        const a = await fetch(`/api/questions/${qid}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ role: "assistant", content: fullReply.trim() }),
+        });
+        if (!a.ok) {
+          trackEvent("ai_chat_fail", { error: "save_assistant_message_failed" });
+          setChatById((m) => ({ ...m, [qid]: prev }));
+          setError("save_failed");
+          return;
+        }
+
+        const trimmed = fullReply.trim();
+        const userTurnIndex = nextMsgs.filter((m) => m.role === "user").length;
+        const hadAssistantBefore = prev.some((m) => m.role === "assistant");
+        trackEvent("ai_chat_success", {
+          round: selectedQ.round,
+          user_turn_index: userTurnIndex,
+          is_first_assistant_reply: !hadAssistantBefore,
+        });
+        setChatById((m) => ({
+          ...m,
+          [qid]: [...nextMsgs, { role: "assistant" as const, content: trimmed }],
+        }));
+      } catch {
+        trackEvent("ai_chat_fail", { error: "network" });
+        setError("network");
+        setChatById((m) => ({ ...m, [qid]: prev }));
+      } finally {
+        setLoadingChat(false);
       }
     },
-    [],
+    [selectedQ, chatById, locale, session, t],
   );
 
-  const importFullReply = useCallback(() => {
-    if (!selectedQ || !lastAssistantContent) {
-      setError(t("importNoAssistant"));
-      return;
-    }
-    importToScript(lastAssistantContent, selectedQ, "full_reply");
-  }, [selectedQ, lastAssistantContent, importToScript, t]);
-
-  const importSelection = useCallback(() => {
-    if (!selectedQ) return;
-    const sel = typeof window !== "undefined" ? window.getSelection()?.toString().trim() : "";
-    if (!sel) {
-      setError(t("importNeedSelection"));
-      return;
-    }
-    importToScript(sel, selectedQ, "selection");
-  }, [selectedQ, importToScript, t]);
-
-  const sendChat = useCallback(async () => {
-    if (!selectedQ || !chatInput.trim()) return;
-    setError(null);
+  const sendChat = useCallback(() => {
     const userMsg = chatInput.trim();
+    if (!userMsg || !selectedQ) return;
     setChatInput("");
-    const qid = selectedQ.id;
-    const prev = chatById[qid] ?? [];
-    const nextMsgs = [...prev, { role: "user" as const, content: userMsg }];
-    setChatById((m) => ({ ...m, [qid]: nextMsgs }));
-    setLoadingChat(true);
-    let fullReply = "";
-    try {
-      const res = await fetch("/api/ai/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          questionTitle: selectedQ.title,
-          messages: nextMsgs,
-          locale,
-          jd: session?.jd ?? "",
-          resume: session?.resume ?? "",
-          round: selectedQ.round,
-        }),
-      });
-      const json = (await res.json()) as {
-        ok?: boolean;
-        reply?: string;
-        error?: string;
-        message?: string;
-      };
-      if (!res.ok) {
-        trackEvent("ai_chat_fail", {
-          error: analyticsErrorCode(json.error ?? json.message),
-        });
-        setError(mapChatError(json.error ?? json.message, t));
-        setChatById((m) => ({ ...m, [qid]: prev }));
-        return;
-      }
-      fullReply = json.reply ?? "";
-
-      if (!fullReply.trim()) {
-        trackEvent("ai_chat_fail", { error: "empty_reply" });
-        setError(mapChatError("empty_reply", t));
-        setChatById((m) => ({ ...m, [qid]: prev }));
-        return;
-      }
-
-      const u = await fetch(`/api/questions/${qid}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: "user", content: userMsg }),
-      });
-      if (!u.ok) {
-        trackEvent("ai_chat_fail", { error: "save_user_message_failed" });
-        setChatById((m) => ({ ...m, [qid]: prev }));
-        setError("save_failed");
-        return;
-      }
-      const a = await fetch(`/api/questions/${qid}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role: "assistant", content: fullReply.trim() }),
-      });
-      if (!a.ok) {
-        trackEvent("ai_chat_fail", { error: "save_assistant_message_failed" });
-        setChatById((m) => ({ ...m, [qid]: prev }));
-        setError("save_failed");
-        return;
-      }
-
-      const trimmed = fullReply.trim();
-      const userTurnIndex = nextMsgs.filter((m) => m.role === "user").length;
-      const hadAssistantBefore = prev.some((m) => m.role === "assistant");
-      trackEvent("ai_chat_success", {
-        round: selectedQ.round,
-        user_turn_index: userTurnIndex,
-        is_first_assistant_reply: !hadAssistantBefore,
-      });
-      setChatById((m) => ({
-        ...m,
-        [qid]: [...nextMsgs, { role: "assistant" as const, content: trimmed }],
-      }));
-    } catch {
-      trackEvent("ai_chat_fail", { error: "network" });
-      setError("network");
-      setChatById((m) => ({ ...m, [qid]: prev }));
-    } finally {
-      setLoadingChat(false);
-    }
-  }, [selectedQ, chatInput, chatById, locale, session, t]);
+    void sendChatMessage(userMsg);
+  }, [selectedQ, chatInput, sendChatMessage]);
 
   const closeAddQuestionModal = useCallback(() => {
     setAddQuestionModalOpen(false);
@@ -1531,33 +1502,27 @@ export function WorkspaceClient() {
               </div>
 
               <div className="mt-2 shrink-0 space-y-2 border-t border-[var(--outline-variant)]/10 pt-3">
-                <div className="flex flex-wrap gap-2">
+                {selectedQ ? (
                   <button
                     type="button"
-                    onClick={importFullReply}
-                    disabled={!selectedQ || !lastAssistantContent}
-                    className="rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] px-3 py-1.5 text-xs font-medium text-[var(--primary)] transition hover:bg-[var(--surface-container-low)] disabled:opacity-40"
+                    disabled={loadingChat}
+                    onClick={() => {
+                      trackEvent("chat_quick_answer");
+                      void sendChatMessage(t("chatQuickAnswerPrompt"));
+                    }}
+                    className="w-full rounded-xl border border-[var(--primary)]/35 bg-[var(--primary)]/10 px-3 py-2.5 text-left text-sm font-medium text-[var(--primary)] transition hover:bg-[var(--primary)]/15 disabled:opacity-40"
                   >
-                    {t("importFullClean")}
+                    {t("chatQuickAnswerButton")}
                   </button>
-                  <button
-                    type="button"
-                    onClick={importSelection}
-                    disabled={!selectedQ}
-                    className="rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] px-3 py-1.5 text-xs font-medium text-[var(--on-surface)] transition hover:bg-[var(--surface-container-low)] disabled:opacity-40"
-                  >
-                    {t("importSelection")}
-                  </button>
-                </div>
+                ) : null}
                 <div className="flex flex-col gap-1">
                   {selectedQ ? (
                     <p className="text-[11px] leading-snug text-[var(--on-surface-variant)]">
                       {t("chatFollowUpHint")}
                     </p>
                   ) : null}
-                  <div className="flex gap-2">
-                  <input
-                    className="min-w-0 flex-1 rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] px-3 py-2.5 text-sm outline-none focus:ring-1 focus:ring-[var(--primary)]/25"
+                  <div className="flex items-end gap-2">
+                  <AutoGrowTextarea
                     value={chatInput}
                     onChange={(e) => setChatInput(e.target.value)}
                     onPaste={onChatPaste}
@@ -1569,6 +1534,7 @@ export function WorkspaceClient() {
                     }}
                     placeholder={t("chatPlaceholder")}
                     disabled={!selectedQ || loadingChat}
+                    className="min-h-[2.75rem] min-w-0 flex-1 resize-none rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] px-3 py-2.5 text-sm leading-relaxed text-[var(--on-surface)] outline-none focus:ring-1 focus:ring-[var(--primary)]/25"
                   />
                   <button
                     type="button"
@@ -1614,19 +1580,15 @@ export function WorkspaceClient() {
                     <button
                       type="button"
                       onClick={() => setTranscriptPanelOpen(false)}
-                      className="rounded-lg p-2 text-[var(--on-surface-variant)] hover:bg-[var(--surface-container-high)] hover:text-[var(--primary)]"
-                      title={t("transcriptHidePanel")}
+                      className="rounded-lg px-2.5 py-1.5 text-sm font-medium text-[var(--on-surface-variant)] hover:bg-[var(--surface-container-high)] hover:text-[var(--primary)]"
+                      title={t("transcriptHidePanelTitle")}
                     >
-                      <MaterialIcon name="chevron_right" className="!text-xl" />
+                      {t("transcriptHidePanel")}
                     </button>
                   </div>
                 </div>
                 <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-[var(--outline-variant)]/10 bg-[var(--surface-container-lowest)] p-3 scrollbar-thin md:p-4">
-                  {orderedTranscriptSections.length === 0 ? (
-                    <p className="text-xs leading-relaxed text-[var(--on-surface-variant)]">
-                      {t("placeholderScript")}
-                    </p>
-                  ) : (
+                  {orderedTranscriptSections.length === 0 ? null : (
                     <div className="flex flex-col gap-3">
                       {orderedTranscriptSections.map(({ q, body }) => {
                         const expanded = scriptSectionExpanded[q.id] !== false;

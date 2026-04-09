@@ -1,6 +1,33 @@
+import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { DraftNav } from "@/components/DraftNav";
 import { Link } from "@/i18n/navigation";
+import { brandName } from "@/lib/brand";
+import { routing } from "@/i18n/routing";
+import { publicPageMetadata } from "@/lib/seo-metadata";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  const tNav = await getTranslations({
+    locale: locale as (typeof routing.locales)[number],
+    namespace: "UserMenu",
+  });
+  const tSeo = await getTranslations({
+    locale: locale as (typeof routing.locales)[number],
+    namespace: "Seo",
+  });
+  const title = `${tNav("privacyPolicy")} · ${brandName(locale)}`;
+  return publicPageMetadata({
+    locale,
+    pathAfterLocale: "privacy",
+    title,
+    description: tSeo("privacyDescription"),
+  });
+}
 
 export default async function PrivacyPage({
   params,

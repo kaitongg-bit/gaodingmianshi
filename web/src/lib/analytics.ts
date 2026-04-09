@@ -4,11 +4,14 @@
  *
  * 指标对照（在分析工具里用漏斗 / 自定义报告计算比例即可）：
  * - 订阅意向：`billing_paywall_view`
- * - 生成成功：`ai_analyze_success` | `ai_generate_questions_success` | `ai_chat_success` | `ai_extract_questions_success`
+ * - 生成成功：`ai_analyze_success` | `ai_generate_questions_success` | `ai_prep_full_success` | `ai_chat_success` | `ai_extract_questions_success`
+ * - 准备页合并流水线失败：`ai_prep_pipeline_fail`
  * - 生成失败：对应的 `*_fail`
  * - 采纳（逐字稿）：`script_adopt`（source: full_reply | selection）
  * - 对话频次：`ai_chat_success` 的 `user_turn_index`（本题下累计用户发言轮次，含本次）
  * - 导出：`export_markdown`（source: workspace | question_bank）
+ * - 获客问卷：`acquisition_survey_view` | `acquisition_survey_submit`（channel）| `acquisition_survey_fail`（code）
+ * - 工作区快捷要答案：`chat_quick_answer`（随后仍会计入 `ai_chat_success`）
  */
 
 export type AnalyticsProps = Record<string, string | number | boolean | undefined | null>;

@@ -1,6 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { classifyExchangeError } from "@/lib/auth-oauth-error";
 import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
+
+function loginLocaleFromNext(next: string): string {
+  const m = next.match(/^\/(en|zh)(\/|$)/);
+  return m?.[1] ?? "en";
+}
 
 /**
  * OAuth / magic-link / recovery：Supabase 重定向到此 URL 并带上 ?code=
@@ -13,9 +19,13 @@ export async function GET(request: NextRequest) {
   const code = url.searchParams.get("code");
   const nextRaw = url.searchParams.get("next");
   const next = nextRaw?.startsWith("/") && !nextRaw.startsWith("//") ? nextRaw : "/en/projects";
+  const locale = loginLocaleFromNext(next);
+
+  const loginUrl = (reason: string) =>
+    new URL(`/${locale}/auth/login?error=auth&reason=${encodeURIComponent(reason)}`, url.origin);
 
   if (!code) {
-    return NextResponse.redirect(new URL("/en/auth/login?error=auth", url.origin));
+    return NextResponse.redirect(loginUrl("missing_code"));
   }
 
   const redirectResponse = NextResponse.redirect(new URL(next, url.origin));
@@ -35,7 +45,8 @@ export async function GET(request: NextRequest) {
 
   const { error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
-    return NextResponse.redirect(new URL("/en/auth/login?error=auth", url.origin));
+    const reason = classifyExchangeError(error.message);
+    return NextResponse.redirect(loginUrl(reason));
   }
 
   return redirectResponse;

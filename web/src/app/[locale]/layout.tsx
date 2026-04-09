@@ -7,6 +7,8 @@ import "../globals.css";
 import { routing } from "@/i18n/routing";
 import { AnalyticsScripts } from "@/components/AnalyticsScripts";
 import { PageTransitionShell } from "@/components/PageTransitionShell";
+import { brandName } from "@/lib/brand";
+import { getSiteUrl } from "@/lib/site-url";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -33,12 +35,28 @@ export async function generateMetadata({
     locale: locale as (typeof routing.locales)[number],
     namespace: "LocaleLayout",
   });
+  const siteUrl = getSiteUrl();
+  const gsv = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION?.trim();
+  const ogLocale = locale === "zh" ? "zh_CN" : "en_US";
   return {
+    metadataBase: new URL(siteUrl),
     title: t("title"),
     description: t("description"),
     icons: {
       icon: [{ url: "/logo-mark.png", type: "image/png" }],
       apple: [{ url: "/logo-mark.png", type: "image/png" }],
+    },
+    ...(gsv ? { verification: { google: gsv } } : {}),
+    openGraph: {
+      type: "website",
+      siteName: brandName(locale),
+      locale: ogLocale,
+      alternateLocale: locale === "zh" ? ["en_US"] : ["zh_CN"],
+      images: [{ url: "/logo-mark.png", width: 512, height: 512, alt: brandName(locale) }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      images: ["/logo-mark.png"],
     },
   };
 }

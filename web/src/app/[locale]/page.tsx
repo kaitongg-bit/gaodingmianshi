@@ -1,6 +1,8 @@
+import type { Metadata } from "next";
+import { hasLocale } from "next-intl";
 import Image from "next/image";
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Link } from "@/i18n/navigation";
+import { Link, redirect } from "@/i18n/navigation";
 import { brandName } from "@/lib/brand";
 import { DraftNav } from "@/components/DraftNav";
 import { LandingBottomCta } from "@/components/LandingBottomCta";
@@ -8,6 +10,29 @@ import { LandingHeroCtas } from "@/components/LandingHeroCtas";
 import { PostEmailAuthHandoff } from "@/components/PostEmailAuthHandoff";
 import { LandingHeroMockup } from "@/components/LandingHeroMockup";
 import { MaterialIcon } from "@/components/MaterialIcon";
+import { routing } from "@/i18n/routing";
+import { publicPageMetadata } from "@/lib/seo-metadata";
+import { getSiteUrl } from "@/lib/site-url";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  if (!hasLocale(routing.locales, locale)) return {};
+  const t = await getTranslations({
+    locale: locale as (typeof routing.locales)[number],
+    namespace: "LocaleLayout",
+  });
+  return publicPageMetadata({
+    locale,
+    pathAfterLocale: "",
+    title: t("title"),
+    description: t("description"),
+  });
+}
 
 export default async function LandingPage({
   params,
@@ -16,12 +41,47 @@ export default async function LandingPage({
 }) {
   const { locale } = await params;
   setRequestLocale(locale);
+
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) {
+    redirect({ href: "/projects", locale });
+  }
+
   const t = await getTranslations("Landing");
   const brand = brandName(locale);
   const year = new Date().getFullYear();
+  const siteUrl = getSiteUrl();
+  const pageUrl = `${siteUrl}/${locale}`;
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "WebSite",
+        "@id": `${pageUrl}#website`,
+        url: pageUrl,
+        name: `${brand} · InterviewScript`,
+        inLanguage: locale === "zh" ? "zh-CN" : "en",
+        publisher: { "@id": `${pageUrl}#organization` },
+      },
+      {
+        "@type": "Organization",
+        "@id": `${pageUrl}#organization`,
+        name: brand,
+        url: siteUrl,
+        logo: `${siteUrl}/logo-mark.png`,
+      },
+    ],
+  };
 
   return (
     <div className="min-h-full bg-[var(--background)]">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <DraftNav variant="marketing" />
       <PostEmailAuthHandoff />
       <main id="main" className="pt-20">

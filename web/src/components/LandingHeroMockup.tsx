@@ -64,7 +64,7 @@ export function LandingHeroMockup() {
     }
 
     const PHASE_MS = [900, 780, 3600, 1000, 950, 800, 700, 780, 2200, 900, 1100, 2200];
-    const PREP_MS = [650, 750, 800, 1100, 1000, 850, 1200];
+        const PREP_MS = [650, 750, 800, 2600, 1000, 900];
     let cancelled = false;
 
     (async () => {
@@ -325,10 +325,10 @@ function PrepWorkspaceMock({
 }) {
   const resumeGlow = prepPhase >= 1;
   const jdGlow = prepPhase >= 2;
-  const analyzeBusy = prepPhase === 3;
+  const pipelineBusy = prepPhase === 3;
   const showInsights = prepPhase >= 4;
   const ctaEmphasis = prepPhase >= 5;
-  const ctaGenerating = prepPhase >= 6;
+  const ctaGenerating = prepPhase >= 5;
 
   const barLine = (w: string, key: number) => (
     <div key={key} className={`h-1.5 rounded-sm bg-[var(--surface-container-high)] ${w}`} aria-hidden />
@@ -401,25 +401,9 @@ function PrepWorkspaceMock({
         </div>
 
         <div className="mt-2 shrink-0 space-y-1">
-          {analyzeBusy ? (
-            <p className="text-center text-[8px] leading-tight text-[var(--on-surface-variant)] md:text-[9px]">
-              {t("heroPrepThinking")}
-            </p>
-          ) : (
-            <div className="min-h-[1rem]" aria-hidden />
-          )}
-          <button
-            type="button"
-            disabled
-            className={`flex min-h-9 w-full items-center justify-center rounded-xl border border-[var(--outline-variant)]/40 px-2 py-2 text-center text-[10px] font-medium transition md:min-h-10 md:text-xs ${
-              analyzeBusy
-                ? "text-[var(--primary)] opacity-80 motion-safe:animate-pulse"
-                : "text-[var(--primary)]"
-            }`}
-            aria-hidden
-          >
-            {analyzeBusy ? t("heroPrepThinking") : t("heroPrepAnalyze")}
-          </button>
+          <p className="text-center text-[8px] leading-snug text-[var(--on-surface-variant)] md:text-[9px]">
+            {pipelineBusy ? t("heroPrepPipelineBusy") : t("heroPrepMaterialsNote")}
+          </p>
         </div>
       </section>
 

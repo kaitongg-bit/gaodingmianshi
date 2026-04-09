@@ -1,18 +1,7 @@
 import { NextResponse } from "next/server";
-import { GeminiConfigError, getGeminiJsonModel } from "@/lib/gemini";
+import { GeminiConfigError } from "@/lib/gemini";
 import { consumeCreditsForAi } from "@/lib/server/ai-guard";
-
-const SCHEMA_HINT = `Return ONLY valid JSON with this shape:
-{
-  "overallFit": { "label": string, "score0to100": number, "oneLiner": string },
-  "dimensions": [ { "name": string, "level": string, "detail": string } ],
-  "prepNotes": {
-    "strengths": string,
-    "gaps": string,
-    "likelyQuestionThemes": string
-  }
-}
-Use 4–6 dimensions such as: hard skills coverage, experience relevance, transferable skills, gaps/risks, communication evidence, domain fit.`;
+import { runResumeJdAnalysis } from "@/lib/server/ai-analyze-core";
 
 export async function POST(req: Request) {
   try {
@@ -40,28 +29,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const model = getGeminiJsonModel();
-
-    const lang =
-      locale === "en"
-        ? "Write all string values in natural English."
-        : "所有字符串字段用自然中文书写。";
-
-    const prompt = `You help candidates prepare BEFORE interviews (not cheating during interviews).
-${lang}
-
-${SCHEMA_HINT}
-
---- RESUME ---
-${resume}
-
---- JOB DESCRIPTION ---
-${jd}
-`;
-
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
-    const parsed = JSON.parse(text) as unknown;
+    const parsed = await runResumeJdAnalysis({ resume, jd, locale });
     return NextResponse.json({ ok: true, data: parsed });
   } catch (e) {
     if (e instanceof GeminiConfigError) {

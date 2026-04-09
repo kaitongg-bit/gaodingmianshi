@@ -7,6 +7,7 @@ import { useSearchParams } from "next/navigation";
 import { useRouter } from "@/i18n/navigation";
 import { DraftNav } from "@/components/DraftNav";
 import { MaterialIcon } from "@/components/MaterialIcon";
+import { PrepPipelineLoadingPanel } from "@/components/PrepPipelineLoadingPanel";
 import { PrepSpotlight } from "@/components/PrepSpotlight";
 import type { AnalysisPayload } from "@/lib/client-session";
 import { PENDING_ROUND_SESSION_KEY } from "@/lib/projects-storage";
@@ -44,10 +45,17 @@ export function PrepClient() {
   const searchParams = useSearchParams();
   const projectIdParam = searchParams.get("project");
   const messages = useMessages() as {
-    Prep?: { thinkingSteps?: string[]; generatingSteps?: string[] };
+    Prep?: {
+      thinkingSteps?: string[];
+      generatingSteps?: string[];
+      pipelineSteps?: string[];
+    };
   };
-  const thinkingSteps = messages.Prep?.thinkingSteps ?? [];
-  const generatingSteps = useMemo(
+  const pipelineStepsList = useMemo(
+    () => messages.Prep?.pipelineSteps ?? [],
+    [messages],
+  );
+  const generatingStepsList = useMemo(
     () => messages.Prep?.generatingSteps ?? [],
     [messages],
   );
@@ -61,19 +69,16 @@ export function PrepClient() {
   const [jd, setJd] = useState("");
   const [roundsCount, setRoundsCount] = useState(3);
   const [analysis, setAnalysis] = useState<AnalysisPayload | null>(null);
-  const [loadingAnalyze, setLoadingAnalyze] = useState(false);
-  const [loadingGen, setLoadingGen] = useState(false);
+  const [loadingPipeline, setLoadingPipeline] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [thinkingStep, setThinkingStep] = useState(0);
+  const [pipelineElapsedMs, setPipelineElapsedMs] = useState(0);
+  const [pipelineMode, setPipelineMode] = useState<"full" | "questions" | null>(null);
+  const [questionsRetryNeeded, setQuestionsRetryNeeded] = useState(false);
   const [addRoundBusy, setAddRoundBusy] = useState(false);
   const [removeRoundBusy, setRemoveRoundBusy] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const genTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [genThinkingStep, setGenThinkingStep] = useState(0);
   const [prepNoteModal, setPrepNoteModal] = useState<null | "focus" | "risk">(null);
   const [coachTick, setCoachTick] = useState(0);
-  const analyzeBtnRef = useRef<HTMLButtonElement>(null);
-  const generateBtnRef = useRef<HTMLButtonElement>(null);
+  const fullPrepBtnRef = useRef<HTMLButtonElement>(null);
 
   const handleAddRound = useCallback(async () => {
     if (!projectId) return;
@@ -297,39 +302,24 @@ export function PrepClient() {
   }, [projectId, locale]);
 
   useEffect(() => {
-    const n = Math.max(1, thinkingSteps.length);
-    if (loadingAnalyze) {
-      setThinkingStep(0);
-      timerRef.current = setInterval(() => setThinkingStep((s) => (s + 1) % n), 900);
-    } else if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, [loadingAnalyze, thinkingSteps.length]);
-
-  useEffect(() => {
-    if (!loadingGen) {
-      if (genTimerRef.current) {
-        clearInterval(genTimerRef.current);
-        genTimerRef.current = null;
-      }
+    if (!loadingPipeline) {
+      setPipelineElapsedMs(0);
       return;
     }
-    const steps =
-      generatingSteps.length > 0 ? generatingSteps : [t("generatingQuestions")];
-    setGenThinkingStep(0);
-    const n = Math.max(1, steps.length);
-    genTimerRef.current = setInterval(() => setGenThinkingStep((s) => (s + 1) % n), 900);
-    return () => {
-      if (genTimerRef.current) {
-        clearInterval(genTimerRef.current);
-        genTimerRef.current = null;
-      }
-    };
-  }, [loadingGen, generatingSteps, t]);
+    const t0 = Date.now();
+    const id = window.setInterval(() => setPipelineElapsedMs(Date.now() - t0), 200);
+    return () => clearInterval(id);
+  }, [loadingPipeline]);
+
+  const pipelinePanelSteps = useMemo(() => {
+    if (pipelineMode === "questions" && generatingStepsList.length > 0) {
+      return generatingStepsList;
+    }
+    if (pipelineStepsList.length > 0) return pipelineStepsList;
+    return [t("runFullPrepBusy")];
+  }, [pipelineMode, pipelineStepsList, generatingStepsList, t]);
+
+  const pipelineTypicalSeconds = pipelineMode === "questions" ? 90 : 180;
 
   useEffect(() => {
     if (!prepNoteModal) return;
@@ -371,85 +361,86 @@ export function PrepClient() {
     [projectId, router],
   );
 
-  const runAnalyze = useCallback(async () => {
-    setError(null);
-    setLoadingAnalyze(true);
-    try {
-      const res = await fetch("/api/ai/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resume, jd, locale }),
-      });
-      const json = (await res.json()) as {
-        ok?: boolean;
-        data?: AnalysisPayload;
-        error?: string;
-        message?: string;
-      };
-      if (!res.ok) {
-        trackEvent("ai_analyze_fail", {
-          error: analyticsErrorCode(json.error ?? json.message),
+  const applyAnalysisToProject = useCallback(
+    async (data: AnalysisPayload) => {
+      if (!projectId) return;
+      patchPrepCoach(projectId, { skipAnalyze: true });
+      const suggest =
+        (data.overallFit?.label && String(data.overallFit.label).trim().slice(0, 80)) ||
+        (data.overallFit?.oneLiner && String(data.overallFit.oneLiner).trim().slice(0, 80));
+      if (suggest) {
+        await fetch(`/api/projects/${projectId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ display_title_if_empty: suggest }),
         });
-        setError(mapAiError(json.error ?? json.message, t));
-        return;
       }
-      if (json.data) {
-        trackEvent("ai_analyze_success", {});
-        setAnalysis(json.data);
-        if (projectId) {
-          patchPrepCoach(projectId, { skipAnalyze: true });
-          const d = json.data;
-          const suggest =
-            (d.overallFit?.label && String(d.overallFit.label).trim().slice(0, 80)) ||
-            (d.overallFit?.oneLiner && String(d.overallFit.oneLiner).trim().slice(0, 80));
-          if (suggest) {
-            void fetch(`/api/projects/${projectId}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ display_title_if_empty: suggest }),
-            });
-          }
-        }
-      }
-    } catch {
-      trackEvent("ai_analyze_fail", { error: "network" });
-      setError("network");
-    } finally {
-      setLoadingAnalyze(false);
-    }
-  }, [resume, jd, locale, t, projectId]);
+    },
+    [projectId],
+  );
 
-  const confirmAndGenerate = useCallback(async () => {
-    if (!projectId) return;
-    setError(null);
-    setLoadingGen(true);
-    try {
-      await fetch(`/api/projects/${projectId}`, {
-        method: "PATCH",
+  const saveQuestionsToProject = useCallback(
+    async (questions: QuestionItem[]) => {
+      if (!projectId) return false;
+      const put = await fetch(`/api/projects/${projectId}/questions`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          resume_text: resume,
-          jd_text: jd,
-          rounds_count: roundsCount,
-          analysis_jsonb: analysis,
+          questions: questions.map((q) => ({ title: q.title, round: q.round })),
         }),
       });
-
-      let existingQuestionTitles: string[] = [];
-      try {
-        const wr = await fetch(
-          `/api/projects/${projectId}/workspace?locale=${encodeURIComponent(locale)}`,
-        );
-        const wj = (await wr.json()) as { questions?: { title?: string }[] };
-        if (wr.ok && Array.isArray(wj.questions)) {
-          existingQuestionTitles = wj.questions
-            .map((q) => (q.title ?? "").trim())
-            .filter(Boolean);
-        }
-      } catch {
-        /* 无已有题目时忽略 */
+      const putJ = (await put.json()) as { error?: string };
+      if (!put.ok) {
+        trackEvent("ai_generate_questions_save_fail", {
+          error: analyticsErrorCode(putJ.error),
+        });
+        setError(putJ.error ?? "save_questions_failed");
+        return false;
       }
+      return true;
+    },
+    [projectId],
+  );
 
+  const persistMaterialsPatch = useCallback(async () => {
+    if (!projectId) return;
+    await fetch(`/api/projects/${projectId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        resume_text: resume,
+        jd_text: jd,
+        rounds_count: roundsCount,
+        analysis_jsonb: analysis,
+      }),
+    });
+  }, [projectId, resume, jd, roundsCount, analysis]);
+
+  const fetchExistingQuestionTitles = useCallback(async () => {
+    if (!projectId) return [] as string[];
+    try {
+      const wr = await fetch(
+        `/api/projects/${projectId}/workspace?locale=${encodeURIComponent(locale)}`,
+      );
+      const wj = (await wr.json()) as { questions?: { title?: string }[] };
+      if (wr.ok && Array.isArray(wj.questions)) {
+        return wj.questions.map((q) => (q.title ?? "").trim()).filter(Boolean);
+      }
+    } catch {
+      /* ignore */
+    }
+    return [];
+  }, [projectId, locale]);
+
+  const runGenerateQuestionsOnly = useCallback(async () => {
+    if (!projectId || !analysis) return;
+    setError(null);
+    setQuestionsRetryNeeded(false);
+    setPipelineMode("questions");
+    setLoadingPipeline(true);
+    try {
+      await persistMaterialsPatch();
+      const existingQuestionTitles = await fetchExistingQuestionTitles();
       const res = await fetch("/api/ai/questions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -473,44 +464,150 @@ export function PrepClient() {
           error: analyticsErrorCode(json.error ?? json.message),
         });
         setError(mapAiError(json.error ?? json.message, t));
+        setQuestionsRetryNeeded(true);
         return;
       }
       if (!json.questions?.length) {
         trackEvent("ai_generate_questions_fail", { error: "empty" });
+        setQuestionsRetryNeeded(true);
         return;
       }
-
-      const put = await fetch(`/api/projects/${projectId}/questions`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          questions: json.questions.map((q) => ({ title: q.title, round: q.round })),
-        }),
-      });
-      const putJ = (await put.json()) as {
-        questions?: unknown[];
-        totalCount?: number;
-        error?: string;
-      };
-      if (!put.ok) {
-        trackEvent("ai_generate_questions_save_fail", {
-          error: analyticsErrorCode(putJ.error),
+      const ok = await saveQuestionsToProject(json.questions);
+      if (ok) {
+        trackEvent("ai_generate_questions_success", {
+          question_count: json.questions.length,
+          rounds: roundsCount,
         });
-        setError(putJ.error ?? "save_questions_failed");
-        return;
+        patchPrepCoach(projectId, { skipGenerate: true });
+        router.push(`/workspace?project=${projectId}`);
       }
-      trackEvent("ai_generate_questions_success", {
-        question_count: json.questions.length,
-        rounds: roundsCount,
-      });
-      router.push(`/workspace?project=${projectId}`);
     } catch {
       trackEvent("ai_generate_questions_fail", { error: "network" });
       setError("network");
+      setQuestionsRetryNeeded(true);
     } finally {
-      setLoadingGen(false);
+      setLoadingPipeline(false);
+      setPipelineMode(null);
     }
-  }, [resume, jd, locale, roundsCount, analysis, projectId, router, t]);
+  }, [
+    projectId,
+    analysis,
+    persistMaterialsPatch,
+    fetchExistingQuestionTitles,
+    resume,
+    jd,
+    locale,
+    roundsCount,
+    saveQuestionsToProject,
+    router,
+    t,
+  ]);
+
+  const runFullPrep = useCallback(async () => {
+    if (!projectId) return;
+    setError(null);
+    setQuestionsRetryNeeded(false);
+    setPipelineMode("full");
+    setLoadingPipeline(true);
+    try {
+      await persistMaterialsPatch();
+      const existingQuestionTitles = await fetchExistingQuestionTitles();
+
+      const res = await fetch("/api/ai/prep-pipeline", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resume,
+          jd,
+          locale,
+          rounds: roundsCount,
+          existingQuestionTitles,
+        }),
+      });
+      const json = (await res.json()) as {
+        ok?: boolean;
+        data?: AnalysisPayload;
+        questions?: QuestionItem[];
+        analysis?: AnalysisPayload;
+        error?: string;
+        message?: string;
+      };
+
+      const errCode = json.error ?? json.message;
+      const gotAnalysis =
+        json.data ??
+        (json.analysis != null &&
+        typeof json.analysis === "object" &&
+        !Array.isArray(json.analysis)
+          ? json.analysis
+          : undefined);
+
+      if (!res.ok) {
+        if (gotAnalysis) {
+          setAnalysis(gotAnalysis);
+          void applyAnalysisToProject(gotAnalysis);
+        }
+        const questionsLegFailed =
+          gotAnalysis &&
+          (res.status === 422 ||
+            errCode === "empty_questions" ||
+            errCode === "questions_failed" ||
+            errCode === "insufficient_credits");
+        if (questionsLegFailed) {
+          setQuestionsRetryNeeded(true);
+          setError(
+            errCode === "insufficient_credits"
+              ? mapAiError(errCode, t)
+              : t("questionsFailedWithAnalysis"),
+          );
+        } else {
+          setQuestionsRetryNeeded(false);
+          setError(mapAiError(errCode, t));
+        }
+        trackEvent("ai_prep_pipeline_fail", {
+          error: analyticsErrorCode(errCode),
+          partial: Boolean(gotAnalysis && questionsLegFailed),
+        });
+        return;
+      }
+
+      if (!json.data || !json.questions?.length) {
+        trackEvent("ai_prep_pipeline_fail", { error: "empty" });
+        setError("empty");
+        return;
+      }
+
+      setAnalysis(json.data);
+      await applyAnalysisToProject(json.data);
+      const ok = await saveQuestionsToProject(json.questions);
+      if (ok) {
+        trackEvent("ai_prep_full_success", {
+          question_count: json.questions.length,
+          rounds: roundsCount,
+        });
+        patchPrepCoach(projectId, { skipAnalyze: true, skipGenerate: true });
+        router.push(`/workspace?project=${projectId}`);
+      }
+    } catch {
+      trackEvent("ai_prep_pipeline_fail", { error: "network" });
+      setError("network");
+    } finally {
+      setLoadingPipeline(false);
+      setPipelineMode(null);
+    }
+  }, [
+    projectId,
+    persistMaterialsPatch,
+    fetchExistingQuestionTitles,
+    resume,
+    jd,
+    locale,
+    roundsCount,
+    applyAnalysisToProject,
+    saveQuestionsToProject,
+    router,
+    t,
+  ]);
 
   const score = analysis?.overallFit?.score0to100 ?? 0;
   const dims = analysis?.dimensions ?? [];
@@ -518,18 +615,12 @@ export function PrepClient() {
   const coachPhase = useMemo(() => {
     if (!projectId || !hydrated || typeof window === "undefined") return null;
     const s = readPrepCoach(projectId);
-    if (!analysis && !s.skipAnalyze) return "analyze" as const;
-    if (analysis && !s.skipGenerate) return "generate" as const;
+    if (!analysis && !s.skipAnalyze) return "fullPrep" as const;
     return null;
   }, [projectId, hydrated, analysis, coachTick]);
 
-  const dismissCoachAnalyze = useCallback(() => {
+  const dismissPrepCoach = useCallback(() => {
     if (projectId) patchPrepCoach(projectId, { skipAnalyze: true });
-    setCoachTick((n) => n + 1);
-  }, [projectId]);
-
-  const dismissCoachGenerate = useCallback(() => {
-    if (projectId) patchPrepCoach(projectId, { skipGenerate: true });
     setCoachTick((n) => n + 1);
   }, [projectId]);
 
@@ -601,6 +692,26 @@ export function PrepClient() {
         ) : null}
 
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-hidden md:grid-cols-12 md:gap-8">
+          {loadingPipeline ? (
+            <div className="col-span-1 shrink-0 md:col-span-12">
+              <PrepPipelineLoadingPanel
+                elapsedMs={pipelineElapsedMs}
+                stepLines={pipelinePanelSteps}
+                typicalSeconds={pipelineTypicalSeconds}
+                headline={
+                  pipelineMode === "questions"
+                    ? t("pipelineLoadingHeadlineQuestions")
+                    : t("pipelineLoadingHeadlineFull")
+                }
+                elapsedPrefix={t("pipelineElapsedPrefix")}
+                typicalNote={
+                  pipelineMode === "questions"
+                    ? t("pipelineTypicalNoteQuestions")
+                    : t("pipelineTypicalNoteFull")
+                }
+              />
+            </div>
+          ) : null}
           <section className="flex min-h-0 flex-col overflow-hidden md:col-span-5">
             <div className="flex shrink-0 items-end justify-between border-b border-[var(--outline-variant)]/30 pb-3">
               <h1 className="font-headline text-2xl font-medium tracking-tight md:text-3xl">
@@ -624,7 +735,9 @@ export function PrepClient() {
                   value={resume}
                   onChange={(e) => setResume(e.target.value)}
                   placeholder={t("resumePlaceholder")}
-                  className="h-36 w-full resize-none rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] p-3 text-sm leading-relaxed text-[var(--on-surface)] outline-none ring-0 focus:ring-1 focus:ring-[var(--primary)]/30 md:h-40"
+                  disabled={loadingPipeline}
+                  aria-busy={loadingPipeline}
+                  className="h-36 w-full resize-none rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] p-3 text-sm leading-relaxed text-[var(--on-surface)] outline-none ring-0 focus:ring-1 focus:ring-[var(--primary)]/30 disabled:cursor-not-allowed disabled:opacity-55 md:h-40"
                 />
               </div>
             </div>
@@ -642,28 +755,17 @@ export function PrepClient() {
                   value={jd}
                   onChange={(e) => setJd(e.target.value)}
                   placeholder={t("jdPlaceholder")}
-                  className="min-h-0 w-full flex-1 resize-none rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] p-3 text-sm leading-relaxed text-[var(--on-surface)] outline-none focus:ring-1 focus:ring-[var(--primary)]/30"
+                  disabled={loadingPipeline}
+                  aria-busy={loadingPipeline}
+                  className="min-h-0 w-full flex-1 resize-none rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] p-3 text-sm leading-relaxed text-[var(--on-surface)] outline-none focus:ring-1 focus:ring-[var(--primary)]/30 disabled:cursor-not-allowed disabled:opacity-55"
                 />
               </div>
             </div>
 
             <div className="mt-3 shrink-0 space-y-1.5">
-              <div className="flex min-h-[2.75rem] flex-col justify-end gap-0.5">
-                {loadingAnalyze && thinkingSteps.length > 0 ? (
-                  <p className="text-center text-[10px] leading-tight text-[var(--on-surface-variant)]">
-                    {thinkingSteps[thinkingStep % thinkingSteps.length]}
-                  </p>
-                ) : null}
-              </div>
-              <button
-                ref={analyzeBtnRef}
-                type="button"
-                onClick={() => void runAnalyze()}
-                disabled={loadingAnalyze}
-                className="flex min-h-12 w-full items-center justify-center rounded-xl border border-[var(--outline-variant)]/40 px-3 py-2 text-center text-sm font-medium text-[var(--primary)] transition hover:bg-[var(--surface-container-low)] disabled:opacity-50"
-              >
-                {loadingAnalyze ? t("analyzing") : t("runAnalysis")}
-              </button>
+              <p className="text-center text-[10px] leading-snug text-[var(--on-surface-variant)] md:text-xs">
+                {t("pipelineMaterialsNote")}
+              </p>
             </div>
           </section>
 
@@ -758,24 +860,30 @@ export function PrepClient() {
             </div>
 
             <div className="shrink-0 space-y-1.5 border-t border-transparent pt-3">
-              <div className="flex min-h-[2.75rem] flex-col justify-end gap-0.5">
-                <p className="line-clamp-3 text-center text-[10px] leading-tight text-[var(--on-surface-variant)]">
-                  {t("confirmHint")}
-                </p>
-                {loadingGen && generatingSteps.length > 0 ? (
-                  <p className="text-center text-[10px] leading-tight text-[var(--on-surface-variant)]">
-                    {generatingSteps[genThinkingStep % generatingSteps.length]}
+              <div className="flex min-h-[2.75rem] flex-col justify-end gap-1">
+                {!loadingPipeline ? (
+                  <>
+                    <p className="text-center text-[10px] leading-snug text-[var(--on-surface-variant)] md:text-xs">
+                      {t("pipelineEta")}
+                    </p>
+                    <p className="text-center text-[10px] leading-snug text-[var(--on-surface-variant)] md:text-xs">
+                      {t("pipelineCreditsNote")}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-center text-[10px] leading-snug text-[var(--on-surface-variant)] md:text-xs">
+                    {t("pipelineCreditsNote")}
                   </p>
-                ) : null}
+                )}
               </div>
               <button
-                ref={generateBtnRef}
+                ref={fullPrepBtnRef}
                 type="button"
-                onClick={() => void confirmAndGenerate()}
-                disabled={loadingGen}
+                onClick={() => void runFullPrep()}
+                disabled={loadingPipeline}
                 className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-3 py-2 text-center text-sm font-medium text-[var(--on-primary)] shadow-lg transition hover:opacity-95 active:scale-[0.99] disabled:opacity-50 md:gap-3 md:text-base"
               >
-                {loadingGen ? (
+                {loadingPipeline ? (
                   <span className="flex items-center justify-center gap-3">
                     <span className="inline-flex h-5 items-end gap-1" aria-hidden>
                       <span
@@ -791,35 +899,37 @@ export function PrepClient() {
                         style={{ animationDelay: "0.24s" }}
                       />
                     </span>
-                    <span>{t("generatingQuestions")}</span>
+                    <span>{t("runFullPrepBusy")}</span>
                   </span>
                 ) : (
                   <>
-                    {t("confirmCta")}
+                    {t("runFullPrep")}
                     <MaterialIcon name="auto_awesome" />
                   </>
                 )}
               </button>
+              {questionsRetryNeeded ? (
+                <button
+                  type="button"
+                  onClick={() => void runGenerateQuestionsOnly()}
+                  disabled={loadingPipeline || !analysis}
+                  className="flex min-h-11 w-full items-center justify-center rounded-xl border border-[var(--outline-variant)]/50 px-3 py-2 text-center text-xs font-medium text-[var(--primary)] transition hover:bg-[var(--surface-container-low)] disabled:opacity-50 md:text-sm"
+                >
+                  {t("retryQuestionsOnly")}
+                </button>
+              ) : null}
             </div>
           </section>
         </div>
       </main>
 
       <PrepSpotlight
-        open={coachPhase === "analyze"}
-        anchorRef={analyzeBtnRef}
-        title={t("coachAnalyzeTitle")}
-        body={t("coachAnalyzeBody")}
+        open={coachPhase === "fullPrep"}
+        anchorRef={fullPrepBtnRef}
+        title={t("coachFullPrepTitle")}
+        body={t("coachFullPrepBody")}
         dismissLabel={t("coachDismiss")}
-        onDismiss={dismissCoachAnalyze}
-      />
-      <PrepSpotlight
-        open={coachPhase === "generate"}
-        anchorRef={generateBtnRef}
-        title={t("coachGenerateTitle")}
-        body={t("coachGenerateBody")}
-        dismissLabel={t("coachDismiss")}
-        onDismiss={dismissCoachGenerate}
+        onDismiss={dismissPrepCoach}
       />
 
       {prepNoteModal ? (
