@@ -221,6 +221,8 @@ export function WorkspaceClient() {
   const [exportScope, setExportScope] = useState<"all" | "currentRound">("all");
   const [editTopic, setEditTopic] = useState<QuestionTopicSlug>("other");
   const [chatPasteNotice, setChatPasteNotice] = useState<string | null>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
+  const [selPopup, setSelPopup] = useState<{ text: string; x: number; y: number } | null>(null);
 
   /** 演示项目：若库里仍是另一语言的整套 demo，与当前 locale 对齐并 PATCH 持久化 */
   const syncDemoResumeJdIfNeeded = useCallback(
@@ -592,6 +594,42 @@ export function WorkspaceClient() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [chatById, selectedId, loadingChat]);
 
+  const onChatMouseUp = useCallback((e: React.MouseEvent) => {
+    const mx = e.clientX;
+    const my = e.clientY;
+    requestAnimationFrame(() => {
+      const sel = window.getSelection();
+      const text = sel?.toString().trim();
+      if (!text || !selectedId) {
+        setSelPopup(null);
+        return;
+      }
+      setSelPopup({ text, x: mx, y: my + 8 });
+    });
+  }, [selectedId]);
+
+  const importSelectionToScript = useCallback(() => {
+    if (!selPopup?.text || !selectedId) return;
+    setScriptById((prev) => {
+      const existing = (prev[selectedId] ?? "").trimEnd();
+      const sep = existing ? "\n\n" : "";
+      return { ...prev, [selectedId]: existing + sep + selPopup.text };
+    });
+    trackEvent("script_adopt", { source: "selection" });
+    setSelPopup(null);
+    window.getSelection()?.removeAllRanges();
+  }, [selPopup, selectedId]);
+
+  useEffect(() => {
+    function onMouseDown(e: MouseEvent) {
+      const popup = document.getElementById("chat-sel-popup");
+      if (popup?.contains(e.target as Node)) return;
+      setSelPopup(null);
+    }
+    document.addEventListener("mousedown", onMouseDown);
+    return () => document.removeEventListener("mousedown", onMouseDown);
+  }, []);
+
   useEffect(() => {
     if (!selectedId) return;
     setScriptSectionExpanded((s) => {
@@ -838,13 +876,14 @@ export function WorkspaceClient() {
             round: selectedQ.round,
           }),
         });
-        const json = (await res.json()) as {
-          ok?: boolean;
-          reply?: string;
-          error?: string;
-          message?: string;
-        };
+
         if (!res.ok) {
+          let json: { error?: string; message?: string } = {};
+          try {
+            json = (await res.json()) as typeof json;
+          } catch {
+            /* non-JSON error body */
+          }
           trackEvent("ai_chat_fail", {
             error: analyticsErrorCode(json.error ?? json.message),
           });
@@ -852,7 +891,71 @@ export function WorkspaceClient() {
           setChatById((m) => ({ ...m, [qid]: prev }));
           return;
         }
-        fullReply = json.reply ?? "";
+
+        const contentType = res.headers.get("content-type") ?? "";
+        if (contentType.includes("text/event-stream") && res.body) {
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buf = "";
+
+          const streamAssistantMsg = [...nextMsgs, { role: "assistant" as const, content: "" }];
+          setChatById((m) => ({ ...m, [qid]: streamAssistantMsg }));
+
+          let streamError: string | null = null;
+
+          // eslint-disable-next-line no-constant-condition
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buf += decoder.decode(value, { stream: true });
+
+            const lines = buf.split("\n");
+            buf = lines.pop() ?? "";
+
+            for (const line of lines) {
+              if (!line.startsWith("data: ")) continue;
+              const payload = line.slice(6);
+              let parsed: { text?: string; done?: boolean; error?: string; message?: string };
+              try {
+                parsed = JSON.parse(payload) as typeof parsed;
+              } catch {
+                continue;
+              }
+
+              if (parsed.error) {
+                streamError = parsed.error;
+                break;
+              }
+
+              if (parsed.done) break;
+
+              if (parsed.text) {
+                fullReply += parsed.text;
+                setChatById((m) => {
+                  const msgs = m[qid] ?? [];
+                  const updated = [...msgs];
+                  const lastIdx = updated.length - 1;
+                  if (lastIdx >= 0 && updated[lastIdx].role === "assistant") {
+                    updated[lastIdx] = { ...updated[lastIdx], content: fullReply };
+                  }
+                  return { ...m, [qid]: updated };
+                });
+              }
+            }
+
+            if (streamError) break;
+          }
+
+          if (streamError) {
+            trackEvent("ai_chat_fail", { error: streamError });
+            setError(mapChatError(streamError, t));
+            setChatById((m) => ({ ...m, [qid]: prev }));
+            return;
+          }
+        } else {
+          const json = (await res.json()) as { reply?: string; error?: string; message?: string };
+          fullReply = json.reply ?? "";
+        }
 
         if (!fullReply.trim()) {
           trackEvent("ai_chat_fail", { error: "empty_reply" });
@@ -1453,10 +1556,41 @@ export function WorkspaceClient() {
                 ) : null}
               </header>
 
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1 scrollbar-thin">
+              {selPopup ? (
+                <button
+                  id="chat-sel-popup"
+                  type="button"
+                  onClick={importSelectionToScript}
+                  className="pointer-events-auto fixed z-50 -translate-x-1/2 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface)] px-3 py-1.5 text-xs font-medium text-[var(--primary)] shadow-lg transition hover:bg-[var(--surface-container-high)]"
+                  style={{ left: selPopup.x, top: selPopup.y }}
+                >
+                  {t("importToScript")}
+                </button>
+              ) : null}
+
+              <div
+                ref={chatScrollRef}
+                className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1 scrollbar-thin"
+                onMouseUp={onChatMouseUp}
+              >
                 {!selectedQ && (
                   <p className="text-sm text-[var(--on-surface-variant)]">{t("selectQuestion")}</p>
                 )}
+                {selectedQ && !(chatById[selectedQ.id] ?? []).length && !loadingChat ? (
+                  <div className="flex h-full items-center justify-center">
+                    <button
+                      type="button"
+                      disabled={loadingChat}
+                      onClick={() => {
+                        trackEvent("chat_quick_answer");
+                        void sendChatMessage(t("chatQuickAnswerPrompt"));
+                      }}
+                      className="rounded-full border border-[var(--primary)]/30 bg-[var(--primary)]/8 px-5 py-2.5 text-sm font-medium text-[var(--primary)] shadow-sm transition hover:bg-[var(--primary)]/15 hover:shadow-md active:scale-[0.97]"
+                    >
+                      {t("chatQuickAnswerButton")}
+                    </button>
+                  </div>
+                ) : null}
                 {selectedQ &&
                   (chatById[selectedQ.id] ?? []).map((m, i) => (
                     <div
@@ -1474,7 +1608,7 @@ export function WorkspaceClient() {
                       )}
                     </div>
                   ))}
-                {selectedQ && loadingChat ? (
+                {selectedQ && loadingChat && !(chatById[selectedQ.id]?.at(-1)?.role === "assistant" && chatById[selectedQ.id]!.at(-1)!.content) ? (
                   <div
                     className="mr-auto flex max-w-[92%] items-center rounded-2xl border border-[var(--outline-variant)]/20 bg-[var(--surface-container-low)] px-5 py-4"
                     role="status"
@@ -1502,19 +1636,6 @@ export function WorkspaceClient() {
               </div>
 
               <div className="mt-2 shrink-0 space-y-2 border-t border-[var(--outline-variant)]/10 pt-3">
-                {selectedQ ? (
-                  <button
-                    type="button"
-                    disabled={loadingChat}
-                    onClick={() => {
-                      trackEvent("chat_quick_answer");
-                      void sendChatMessage(t("chatQuickAnswerPrompt"));
-                    }}
-                    className="w-full rounded-xl border border-[var(--primary)]/35 bg-[var(--primary)]/10 px-3 py-2.5 text-left text-sm font-medium text-[var(--primary)] transition hover:bg-[var(--primary)]/15 disabled:opacity-40"
-                  >
-                    {t("chatQuickAnswerButton")}
-                  </button>
-                ) : null}
                 <div className="flex flex-col gap-1">
                   {selectedQ ? (
                     <p className="text-[11px] leading-snug text-[var(--on-surface-variant)]">

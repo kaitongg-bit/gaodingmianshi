@@ -8,8 +8,20 @@ type ChatMessage = { role: "user" | "assistant"; content: string };
 const MAX_JD_CHARS = 6000;
 const MAX_RESUME_CHARS = 6000;
 
-/** Vercel / 长回复：按需在部署环境上调大 */
 export const maxDuration = 120;
+
+function sseHeaders() {
+  return {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  };
+}
+
+function sseData(obj: Record<string, unknown>): string {
+  return `data: ${JSON.stringify(obj)}\n\n`;
+}
 
 export async function POST(req: Request) {
   try {
@@ -103,45 +115,33 @@ ${history ? `Prior chat:\n${history}\n` : ""}
 User (latest message): ${lastUser.content.trim()}
 `;
 
-    const result = await model.generateContent(prompt);
-    const response = result.response;
+    const streamResult = await model.generateContentStream(prompt);
 
-    type PromptFeedback = { blockReason?: string; blockReasonMessage?: string };
-    const feedback = (response as { promptFeedback?: PromptFeedback }).promptFeedback;
-    if (feedback?.blockReason) {
-      console.warn("[api/ai/chat] prompt blocked:", feedback.blockReason, feedback.blockReasonMessage ?? "");
-      return NextResponse.json(
-        {
-          error: "chat_blocked",
-          message: feedback.blockReasonMessage ?? feedback.blockReason,
-        },
-        { status: 422 },
-      );
-    }
+    const encoder = new TextEncoder();
+    const readable = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const chunk of streamResult.stream) {
+            const text = chunk.text();
+            if (text) {
+              controller.enqueue(encoder.encode(sseData({ text })));
+            }
+          }
+          controller.enqueue(encoder.encode(sseData({ done: true })));
+        } catch (streamErr) {
+          const msg =
+            streamErr instanceof Error ? streamErr.message : String(streamErr);
+          console.error("[api/ai/chat] stream error:", msg);
+          controller.enqueue(
+            encoder.encode(sseData({ error: "stream_error", message: msg })),
+          );
+        } finally {
+          controller.close();
+        }
+      },
+    });
 
-    let text: string;
-    try {
-      text = response.text().trim();
-    } catch (textErr) {
-      const msg = textErr instanceof Error ? textErr.message : String(textErr);
-      const c0 = (response as { candidates?: { finishReason?: string }[] }).candidates?.[0];
-      console.error(
-        "[api/ai/chat] response.text() failed:",
-        msg,
-        "finishReason:",
-        c0?.finishReason ?? "(none)",
-      );
-      return NextResponse.json(
-        {
-          error: "chat_empty_response",
-          message: msg,
-          finishReason: c0?.finishReason,
-        },
-        { status: 502 },
-      );
-    }
-
-    return NextResponse.json({ ok: true, reply: text });
+    return new Response(readable, { headers: sseHeaders() });
   } catch (e) {
     if (e instanceof GeminiConfigError) {
       return NextResponse.json(
