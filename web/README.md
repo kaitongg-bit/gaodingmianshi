@@ -45,6 +45,9 @@ npm run dev
 |------|------|
 | `GEMINI_API_KEY` | 必填，Gemini API Key |
 | `GEMINI_MODEL` | 可选，默认 `gemini-2.0-flash` |
+| `GEMINI_FACT_MODEL` | 可选，事实/术语类问答模型；不设则使用 `GEMINI_MODEL`（可设为 `gemini-2.5-pro`） |
+| `GEMINI_FACT_FALLBACK_MODEL` | 可选，事实模型失败时回退模型，默认 `gemini-2.5-pro` |
+| `FEISHU_BOT_WEBHOOK_URL` | 可选，飞书机器人 Webhook；配置后会推送支持反馈与 AI 异常/额度类告警 |
 
 ## API（服务端）
 

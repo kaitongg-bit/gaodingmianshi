@@ -8,6 +8,7 @@ import { GoogleOAuthButton } from "@/components/GoogleOAuthButton";
 import { PasswordInputWithToggle } from "@/components/PasswordInputWithToggle";
 import { messageForOAuthCallbackReason } from "@/lib/auth-oauth-error";
 import { clearStoredUser } from "@/lib/client-session";
+import { reportAuthError } from "@/lib/client/report-auth-error";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export function LoginForm() {
@@ -18,12 +19,19 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const oauthReason =
+    searchParams.get("error") === "auth" ? searchParams.get("reason") : null;
+  const oauthErr = oauthReason ? messageForOAuthCallbackReason(oauthReason, t) : null;
 
   useEffect(() => {
-    if (searchParams.get("error") === "auth") {
-      setErr(messageForOAuthCallbackReason(searchParams.get("reason"), t));
+    if (oauthReason) {
+      reportAuthError({
+        source: "oauth_callback",
+        reason: oauthReason,
+        message: "OAuth callback redirected with auth error",
+      });
     }
-  }, [searchParams, t]);
+  }, [oauthReason]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,6 +47,12 @@ export function LoginForm() {
     if (error) {
       const code = error.code ?? "";
       const msg = error.message.toLowerCase();
+      reportAuthError({
+        source: "login_password",
+        reason: code || "sign_in_failed",
+        message: error.message,
+        emailHint: email.trim().toLowerCase(),
+      });
       if (code === "email_not_confirmed" || msg.includes("email not confirmed")) {
         setErr(t("confirmEmail"));
         return;
@@ -52,8 +66,10 @@ export function LoginForm() {
 
   return (
     <div className="space-y-5">
-      {err ? (
-        <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-950">{err}</p>
+      {err || oauthErr ? (
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-950">
+          {err ?? oauthErr}
+        </p>
       ) : null}
       <GoogleOAuthButton
         onError={(msg) => setErr(msg === "oauth_no_url" ? t("oauthFailedUnknown") : msg)}

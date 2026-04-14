@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { classifyExchangeError } from "@/lib/auth-oauth-error";
+import { notifyFeishuAlert } from "@/lib/server/notify-feishu";
 import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
 
 function loginLocaleFromNext(next: string): string {
@@ -25,6 +26,15 @@ export async function GET(request: NextRequest) {
     new URL(`/${locale}/auth/login?error=auth&reason=${encodeURIComponent(reason)}`, url.origin);
 
   if (!code) {
+    void notifyFeishuAlert({
+      title: "OAuth callback failed",
+      level: "warning",
+      tags: {
+        source: "oauth_callback",
+        reason: "missing_code",
+        next,
+      },
+    });
     return NextResponse.redirect(loginUrl("missing_code"));
   }
 
@@ -46,6 +56,16 @@ export async function GET(request: NextRequest) {
   const { error } = await supabase.auth.exchangeCodeForSession(code);
   if (error) {
     const reason = classifyExchangeError(error.message);
+    void notifyFeishuAlert({
+      title: "OAuth callback exchange failed",
+      level: "warning",
+      tags: {
+        source: "oauth_callback",
+        reason,
+        next,
+      },
+      details: error.message,
+    });
     return NextResponse.redirect(loginUrl(reason));
   }
 

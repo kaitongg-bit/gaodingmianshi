@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { clampRoundsCount } from "@/lib/project-rounds";
 import { GeminiConfigError } from "@/lib/gemini";
 import { consumeCreditsForAi } from "@/lib/server/ai-guard";
+import { notifyAiIssue } from "@/lib/server/notify-ai-issue";
 import { runInterviewQuestionGeneration } from "@/lib/server/ai-questions-core";
 
 export async function POST(req: Request) {
@@ -61,12 +62,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, questions });
   } catch (e) {
     if (e instanceof GeminiConfigError) {
+      void notifyAiIssue("/api/ai/questions", e, { phase: "config" });
       return NextResponse.json(
         { error: "missing_api_key", message: e.message },
         { status: 503 },
       );
     }
     const message = e instanceof Error ? e.message : "unknown_error";
+    void notifyAiIssue("/api/ai/questions", e);
     return NextResponse.json(
       { error: "questions_failed", message },
       { status: 500 },

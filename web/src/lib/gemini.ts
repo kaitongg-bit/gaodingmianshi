@@ -23,6 +23,22 @@ export function getGeminiModelName(): string {
   return process.env.GEMINI_MODEL?.trim() || "gemini-2.0-flash";
 }
 
+/**
+ * Optional model override for factual knowledge questions.
+ * Falls back to GEMINI_MODEL when not configured.
+ */
+export function getGeminiFactModelName(): string {
+  return process.env.GEMINI_FACT_MODEL?.trim() || getGeminiModelName();
+}
+
+/**
+ * Fallback model for factual knowledge questions.
+ * Defaults to gemini-2.5-pro for better reliability if a preview model is unavailable.
+ */
+export function getGeminiFactFallbackModelName(): string {
+  return process.env.GEMINI_FACT_FALLBACK_MODEL?.trim() || "gemini-2.5-pro";
+}
+
 /** JSON responses (analyze, structured outputs). */
 export function getGeminiJsonModel() {
   const genAI = new GoogleGenerativeAI(requireGeminiApiKey());
@@ -35,9 +51,9 @@ export function getGeminiJsonModel() {
 }
 
 /** Plain text / chat. */
-export function getGeminiProseModel() {
+export function getGeminiProseModel(modelName?: string) {
   const genAI = new GoogleGenerativeAI(requireGeminiApiKey());
   return genAI.getGenerativeModel({
-    model: getGeminiModelName(),
+    model: modelName || getGeminiModelName(),
   });
 }

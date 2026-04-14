@@ -3,6 +3,7 @@ import { clampRoundsCount } from "@/lib/project-rounds";
 import { GeminiConfigError } from "@/lib/gemini";
 import { consumeCreditsForAi } from "@/lib/server/ai-guard";
 import { runResumeJdAnalysis } from "@/lib/server/ai-analyze-core";
+import { notifyAiIssue } from "@/lib/server/notify-ai-issue";
 import { runInterviewQuestionGeneration } from "@/lib/server/ai-questions-core";
 
 /** 分析 + 出题串联；Vercel 等平台请保证上限 ≥ 180s */
@@ -50,12 +51,16 @@ export async function POST(req: Request) {
       analysisData = await runResumeJdAnalysis({ resume, jd, locale });
     } catch (e) {
       if (e instanceof GeminiConfigError) {
+        void notifyAiIssue("/api/ai/prep-pipeline", e, {
+          phase: "analyze_config",
+        });
         return NextResponse.json(
           { error: "missing_api_key", message: e.message },
           { status: 503 },
         );
       }
       const message = e instanceof Error ? e.message : "unknown_error";
+      void notifyAiIssue("/api/ai/prep-pipeline", e, { phase: "analyze" });
       return NextResponse.json({ error: "analyze_failed", message }, { status: 500 });
     }
 
@@ -86,12 +91,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, data: analysisData, questions });
     } catch (e) {
       if (e instanceof GeminiConfigError) {
+        void notifyAiIssue("/api/ai/prep-pipeline", e, {
+          phase: "questions_config",
+        });
         return NextResponse.json(
           { error: "missing_api_key", message: e.message, analysis: analysisData },
           { status: 503 },
         );
       }
       const message = e instanceof Error ? e.message : "unknown_error";
+      void notifyAiIssue("/api/ai/prep-pipeline", e, { phase: "questions" });
       return NextResponse.json(
         { error: "questions_failed", message, analysis: analysisData },
         { status: 500 },
@@ -99,11 +108,13 @@ export async function POST(req: Request) {
     }
   } catch (e) {
     if (e instanceof GeminiConfigError) {
+      void notifyAiIssue("/api/ai/prep-pipeline", e, { phase: "outer_config" });
       return NextResponse.json(
         { error: "missing_api_key", message: e.message },
         { status: 503 },
       );
     }
+    void notifyAiIssue("/api/ai/prep-pipeline", e, { phase: "outer" });
     return NextResponse.json({ error: "prep_pipeline_failed" }, { status: 500 });
   }
 }

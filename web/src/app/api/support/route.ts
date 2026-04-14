@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
+import { notifyFeishuAlert } from "@/lib/server/notify-feishu";
 import { notifySupportInbox } from "@/lib/server/notify-support-inbox";
 import { getAuthedSupabase } from "@/lib/server/require-auth";
 import { createSupabaseAdminClient } from "@/lib/server/supabase-admin";
 import { SUPPORT_FEEDBACK_BONUS_CREDITS } from "@/lib/support-feedback-bonus";
 
 const MAX_BODY = 8000;
+const FEISHU_FEEDBACK_PREVIEW_MAX = 1000;
 
 function escapeHtml(s: string): string {
   return s
@@ -12,6 +14,11 @@ function escapeHtml(s: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function truncateText(s: string, max: number): string {
+  if (s.length <= max) return s;
+  return `${s.slice(0, max)}...(truncated)`;
 }
 
 export async function POST(req: Request) {
@@ -97,6 +104,19 @@ export async function POST(req: Request) {
       <hr />
       <pre style="white-space:pre-wrap;font-family:system-ui,sans-serif">${escapeHtml(text)}</pre>
     `.trim(),
+  });
+  void notifyFeishuAlert({
+    title: "New support feedback submitted",
+    level: category === "bug" ? "warning" : "info",
+    tags: {
+      category,
+      userId: user.id,
+      userEmail,
+      feedbackId,
+      bonusState,
+      creditsGranted,
+    },
+    details: truncateText(text, FEISHU_FEEDBACK_PREVIEW_MAX),
   });
 
   return NextResponse.json({

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
+import { reportAuthError } from "@/lib/client/report-auth-error";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export function ForgotPasswordForm() {
@@ -28,12 +29,24 @@ export function ForgotPasswordForm() {
       });
       setLoading(false);
       if (error) {
+        reportAuthError({
+          source: "forgot_password",
+          reason: error.code ?? "reset_password_failed",
+          message: error.message,
+          emailHint: trimmed.toLowerCase(),
+        });
         setErr(error.message);
         return;
       }
       setSent(true);
-    } catch {
+    } catch (e) {
       setLoading(false);
+      reportAuthError({
+        source: "forgot_password",
+        reason: "network",
+        message: e instanceof Error ? e.message : "network_error",
+        emailHint: trimmed.toLowerCase(),
+      });
       setErr(t("genericError"));
     }
   }

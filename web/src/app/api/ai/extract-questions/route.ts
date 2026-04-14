@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { GeminiConfigError, getGeminiJsonModel } from "@/lib/gemini";
 import { normalizeQuestionTopic, QUESTION_TOPIC_SLUGS } from "@/lib/question-topics";
 import { consumeCreditsForAi } from "@/lib/server/ai-guard";
+import { notifyAiIssue } from "@/lib/server/notify-ai-issue";
 
 const MAX_TEXT = 12_000;
 const MAX_IMAGE_BASE64 = 6 * 1024 * 1024; // ~4.5MB binary upper bound for JSON body
@@ -112,15 +113,18 @@ If nothing looks like an interview question, return {"items":[]}.`;
     return NextResponse.json({ ok: true, items });
   } catch (e) {
     if (e instanceof GeminiConfigError) {
+      void notifyAiIssue("/api/ai/extract-questions", e, { phase: "config" });
       return NextResponse.json(
         { error: "missing_api_key", message: e.message },
         { status: 503 },
       );
     }
     if (e instanceof SyntaxError) {
+      void notifyAiIssue("/api/ai/extract-questions", e, { phase: "model_parse" });
       return NextResponse.json({ error: "model_json_invalid" }, { status: 502 });
     }
     const message = e instanceof Error ? e.message : "unknown_error";
+    void notifyAiIssue("/api/ai/extract-questions", e);
     return NextResponse.json({ error: "extract_failed", message }, { status: 500 });
   }
 }

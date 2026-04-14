@@ -2,6 +2,7 @@
 
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
+import { reportAuthError } from "@/lib/client/report-auth-error";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 function GoogleGlyph({ className }: { className?: string }) {
@@ -49,6 +50,11 @@ export function GoogleOAuthButton({ onError }: Props) {
         },
       });
       if (error) {
+        reportAuthError({
+          source: "oauth_start",
+          reason: error.code ?? "supabase_oauth_error",
+          message: error.message,
+        });
         onError?.(error.message);
         setLoading(false);
         return;
@@ -57,9 +63,19 @@ export function GoogleOAuthButton({ onError }: Props) {
         window.location.href = data.url;
         return;
       }
+      reportAuthError({
+        source: "oauth_start",
+        reason: "oauth_no_url",
+        message: "Supabase returned no OAuth redirect URL",
+      });
       onError?.("oauth_no_url");
       setLoading(false);
-    } catch {
+    } catch (e) {
+      reportAuthError({
+        source: "oauth_start",
+        reason: "network",
+        message: e instanceof Error ? e.message : "network_error",
+      });
       onError?.("network");
       setLoading(false);
     }

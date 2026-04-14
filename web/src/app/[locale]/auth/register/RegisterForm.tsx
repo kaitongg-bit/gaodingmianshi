@@ -8,6 +8,7 @@ import { GoogleOAuthButton } from "@/components/GoogleOAuthButton";
 import { PasswordInputWithToggle } from "@/components/PasswordInputWithToggle";
 import { messageForOAuthCallbackReason } from "@/lib/auth-oauth-error";
 import { clearStoredUser } from "@/lib/client-session";
+import { reportAuthError } from "@/lib/client/report-auth-error";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export function RegisterForm() {
@@ -20,12 +21,19 @@ export function RegisterForm() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const oauthReason =
+    searchParams.get("error") === "auth" ? searchParams.get("reason") : null;
+  const oauthErr = oauthReason ? messageForOAuthCallbackReason(oauthReason, t) : null;
 
   useEffect(() => {
-    if (searchParams.get("error") === "auth") {
-      setErr(messageForOAuthCallbackReason(searchParams.get("reason"), t));
+    if (oauthReason) {
+      reportAuthError({
+        source: "oauth_callback",
+        reason: oauthReason,
+        message: "OAuth callback redirected with auth error",
+      });
     }
-  }, [searchParams, t]);
+  }, [oauthReason]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -50,6 +58,12 @@ export function RegisterForm() {
     });
     if (error) {
       setLoading(false);
+      reportAuthError({
+        source: "register_password",
+        reason: error.code ?? "sign_up_failed",
+        message: error.message,
+        emailHint: trimmed.toLowerCase(),
+      });
       setErr(error.message);
       return;
     }
@@ -77,6 +91,12 @@ export function RegisterForm() {
     if (signInError) {
       const code = signInError.code ?? "";
       const msg = signInError.message.toLowerCase();
+      reportAuthError({
+        source: "register_password",
+        reason: code || "post_signup_sign_in_failed",
+        message: signInError.message,
+        emailHint: trimmed.toLowerCase(),
+      });
       if (code === "email_not_confirmed" || msg.includes("email not confirmed")) {
         setInfo(t("confirmEmail"));
         return;
@@ -99,8 +119,10 @@ export function RegisterForm() {
 
   return (
     <div className="space-y-5">
-      {err ? (
-        <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-950">{err}</p>
+      {err || oauthErr ? (
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-950">
+          {err ?? oauthErr}
+        </p>
       ) : null}
       <GoogleOAuthButton
         onError={(msg) => setErr(msg === "oauth_no_url" ? t("oauthFailedUnknown") : msg)}
