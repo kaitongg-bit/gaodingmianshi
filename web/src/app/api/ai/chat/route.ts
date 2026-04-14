@@ -284,7 +284,7 @@ User (latest message): ${lastUser.content.trim()}
     const searchRequest = {
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       tools: [{ googleSearch: {} }],
-    } as Parameters<typeof model.generateContentStream>[0];
+    } as unknown as Parameters<typeof model.generateContentStream>[0];
 
     async function runWithSearchFallback(currentModel = model) {
       try {
