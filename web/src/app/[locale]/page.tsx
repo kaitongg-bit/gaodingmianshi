@@ -85,21 +85,51 @@ export default async function LandingPage({
       <DraftNav variant="marketing" />
       <PostEmailAuthHandoff />
       <main id="main" className="pt-20">
-        <section className="mx-auto grid max-w-screen-2xl gap-12 px-6 py-16 md:grid-cols-[minmax(0,1fr)_minmax(0,1.12fr)] md:items-center md:gap-16 md:px-8 lg:py-24">
+        <section className="mx-auto grid max-w-screen-2xl gap-10 px-4 py-12 md:grid-cols-[minmax(0,1fr)_minmax(0,1.12fr)] md:items-center md:gap-16 md:px-8 lg:py-24">
           <div className="space-y-6 md:space-y-8">
             <p className="text-xs font-medium uppercase tracking-[0.2em] text-[var(--on-surface-variant)]">
               {t("heroKicker")}
             </p>
             <h1 className="font-headline text-4xl font-medium leading-tight tracking-tight text-[var(--on-surface)] md:text-5xl lg:text-[3.5rem]">
               {t("heroTitle")}{" "}
-              <em className="not-italic" style={{ fontFamily: "var(--font-serif)" }}>
+              <em className="not-italic text-[var(--primary)]" style={{ fontFamily: "var(--font-serif)" }}>
                 {t("heroTitleItalic")}
               </em>{" "}
-              {t("heroTitleRest")}
+              {t("heroTitleRest")}{" "}
+              <span className="text-[var(--primary)]">{t("heroTitleAccent")}</span>
             </h1>
             <p className="max-w-lg text-base leading-relaxed text-[var(--on-surface-variant)] md:text-lg">
               {t("heroSub")}
             </p>
+            <div className="max-w-xl rounded-2xl border border-[var(--outline-variant)]/20 bg-[var(--surface-container-low)] p-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[var(--on-surface-variant)]">
+                {t("mobileCompareTitle")}
+              </p>
+              <div className="mt-3 space-y-2.5">
+                {[
+                  {
+                    bad: t("mobilePain1"),
+                    good: t("mobileWin1"),
+                  },
+                  {
+                    bad: t("mobilePain2"),
+                    good: t("mobileWin2"),
+                  },
+                  {
+                    bad: t("mobilePain3"),
+                    good: t("mobileWin3"),
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.bad}
+                    className="grid gap-1.5 rounded-xl bg-[var(--surface)]/90 px-3 py-2.5 sm:grid-cols-2 sm:gap-3"
+                  >
+                    <p className="text-xs text-[var(--on-surface-variant)]">- {item.bad}</p>
+                    <p className="text-xs font-medium text-[var(--on-surface)]">+ {item.good}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
             <LandingHeroCtas />
             <p className="max-w-lg text-xs leading-relaxed text-[var(--on-surface-variant)]">
               {t("heroNote")}

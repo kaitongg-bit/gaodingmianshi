@@ -20,6 +20,18 @@ function usePrefersReducedMotion() {
   return reduced;
 }
 
+function useCoarsePointer() {
+  const [coarse, setCoarse] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(pointer: coarse)");
+    setCoarse(mq.matches);
+    const fn = () => setCoarse(mq.matches);
+    mq.addEventListener("change", fn);
+    return () => mq.removeEventListener("change", fn);
+  }, []);
+  return coarse;
+}
+
 /**
  * 第一题：用户卡壳 → AI 给出提纲 + 逐字稿 + 追问（成品，非说教）→ 用户不再说话 → 写入逐字稿 → 右侧仅骨架示意。
  * 问题列表第 2、3 题为横条占位。第二题：对话 + AI 产出全骨架，再写入，新卡片置顶且全占位。
@@ -27,6 +39,7 @@ function usePrefersReducedMotion() {
 export function LandingHeroMockup() {
   const t = useTranslations("Landing");
   const reducedMotion = usePrefersReducedMotion();
+  const coarsePointer = useCoarsePointer();
   const [hover, setHover] = useState(false);
   const [phase, setPhase] = useState(0);
   const [segment, setSegment] = useState<"workspace" | "prep">("workspace");
@@ -35,18 +48,33 @@ export function LandingHeroMockup() {
   const hoverRef = useRef(false);
 
   const onEnter = useCallback(() => {
+    if (coarsePointer) return;
     hoverRef.current = true;
     setHover(true);
-  }, []);
+  }, [coarsePointer]);
 
   const onLeave = useCallback(() => {
+    if (coarsePointer) return;
     hoverRef.current = false;
     setHover(false);
     setPhase(0);
     setPrepPhase(0);
     setSegment("workspace");
     setUiFlash(false);
-  }, []);
+  }, [coarsePointer]);
+
+  const onTogglePreview = useCallback(() => {
+    if (!coarsePointer) return;
+    const next = !hoverRef.current;
+    hoverRef.current = next;
+    setHover(next);
+    if (!next) {
+      setPhase(0);
+      setPrepPhase(0);
+      setSegment("workspace");
+      setUiFlash(false);
+    }
+  }, [coarsePointer]);
 
   useEffect(() => {
     if (segment !== "workspace" || (phase !== 4 && phase !== 10)) return;
@@ -130,17 +158,23 @@ export function LandingHeroMockup() {
         }`}
         aria-hidden
       >
-        {t("heroMockHoverHint")}
+        {coarsePointer ? t("heroMockTapHint") : t("heroMockHoverHint")}
       </p>
 
-      <div className="group relative">
+      <div
+        className="group relative"
+        onClick={onTogglePreview}
+        role={coarsePointer ? "button" : undefined}
+        aria-label={coarsePointer ? t("heroMockTapHint") : undefined}
+        tabIndex={coarsePointer ? 0 : undefined}
+      >
         <div
           className="pointer-events-none absolute -inset-4 rounded-[2rem] bg-[color-mix(in_srgb,var(--primary)_5%,transparent)] blur-3xl transition-colors duration-500 group-hover:bg-[color-mix(in_srgb,var(--primary)_12%,transparent)] motion-reduce:transition-none"
           aria-hidden
         />
 
         <div
-          className="relative flex h-[min(580px,82svh)] min-h-[26rem] flex-col overflow-hidden rounded-2xl border border-[var(--outline-variant)]/10 bg-[var(--surface-container-lowest)] shadow-2xl transition-[box-shadow] duration-500 group-hover:shadow-[0_24px_64px_rgba(49,51,44,0.12)]"
+          className="relative flex h-[min(500px,72svh)] min-h-[22rem] flex-col overflow-hidden rounded-2xl border border-[var(--outline-variant)]/10 bg-[var(--surface-container-lowest)] shadow-2xl transition-[box-shadow] duration-500 group-hover:shadow-[0_24px_64px_rgba(49,51,44,0.12)] sm:h-[min(580px,82svh)] sm:min-h-[26rem]"
           role="img"
           aria-label={segment === "prep" ? t("heroPrepAria") : t("heroImageAlt")}
         >

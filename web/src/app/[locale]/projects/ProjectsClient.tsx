@@ -126,7 +126,7 @@ export function ProjectsClient() {
   );
 
   return (
-    <div className="min-h-full bg-[var(--background)] pb-24 md:pb-8">
+    <div className="min-h-full bg-[var(--background)] pb-8">
       <DraftNav variant="marketing" />
       <main id="main" className="mx-auto max-w-7xl px-4 pb-8 pt-24 md:px-12">
         <header className="mb-10 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -338,36 +338,6 @@ export function ProjectsClient() {
         </div>
       </main>
 
-      <nav className="fixed bottom-0 left-0 z-50 flex w-full justify-around border-t border-[var(--outline-variant)]/10 bg-[var(--surface)]/90 px-2 py-3 backdrop-blur-xl md:hidden">
-        <span className="flex min-w-0 flex-1 flex-col items-center text-[var(--primary)]">
-          <MaterialIcon name="assignment" />
-          <span className="mt-1 max-w-[4.5rem] truncate text-center text-[10px] font-bold uppercase tracking-widest">
-            {t("mobileProjects")}
-          </span>
-        </span>
-        <button
-          type="button"
-          onClick={() => void goNewSession()}
-          className="flex min-w-0 flex-1 flex-col items-center text-[var(--on-surface-variant)]"
-        >
-          <MaterialIcon name="add_circle" />
-          <span className="mt-1 max-w-[4.5rem] truncate text-center text-[10px] font-medium uppercase tracking-widest">
-            {t("mobileNew")}
-          </span>
-        </button>
-        <Link href="/question-bank" className="flex min-w-0 flex-1 flex-col items-center text-[var(--on-surface-variant)]">
-          <MaterialIcon name="hub" />
-          <span className="mt-1 max-w-[4.5rem] truncate text-center text-[10px] font-medium uppercase tracking-widest">
-            {t("mobileQuestionBank")}
-          </span>
-        </Link>
-        <Link href="/support" className="flex min-w-0 flex-1 flex-col items-center text-[var(--on-surface-variant)]">
-          <MaterialIcon name="help" />
-          <span className="mt-1 max-w-[4.5rem] truncate text-center text-[10px] font-medium uppercase tracking-widest">
-            {t("mobileSupport")}
-          </span>
-        </Link>
-      </nav>
     </div>
   );
 }

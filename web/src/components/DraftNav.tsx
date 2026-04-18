@@ -75,7 +75,7 @@ export function DraftNav({
 
   return (
     <nav className="glass-nav fixed inset-x-0 top-0 z-[100] flex w-full items-center justify-between border-b border-[var(--outline-variant)]/15 px-4 py-3 md:px-8">
-      <div className="flex min-w-0 items-center gap-4 md:gap-10">
+      <div className="flex min-w-0 flex-1 items-center gap-3 md:gap-10">
         {variant === "app" ? (
           <div className="flex min-w-0 items-center gap-1 md:gap-2">
             <Link
@@ -87,10 +87,10 @@ export function DraftNav({
             </Link>
             <Link
               href="/projects"
-              className="flex min-w-0 items-center gap-2 truncate font-headline text-lg font-semibold tracking-tight text-[var(--on-surface)] md:gap-2.5 md:text-xl"
+              className="flex min-w-0 shrink-0 items-center gap-2 font-headline text-base font-semibold tracking-tight text-[var(--on-surface)] md:gap-2.5 md:text-xl"
             >
               <BrandMark />
-              <span className="truncate">{brand}</span>
+              <span className="hidden truncate sm:inline">{brand}</span>
             </Link>
           </div>
         ) : (

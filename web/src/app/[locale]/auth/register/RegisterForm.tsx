@@ -8,6 +8,7 @@ import { GoogleOAuthButton } from "@/components/GoogleOAuthButton";
 import { PasswordInputWithToggle } from "@/components/PasswordInputWithToggle";
 import { messageForOAuthCallbackReason } from "@/lib/auth-oauth-error";
 import { clearStoredUser } from "@/lib/client-session";
+import { isLikelyMobileDevice, markMobileSignupEligible } from "@/lib/client/mobile-onboarding";
 import { reportAuthError } from "@/lib/client/report-auth-error";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -71,6 +72,9 @@ export function RegisterForm() {
     clearStoredUser();
 
     if (data.session) {
+      if (isLikelyMobileDevice()) {
+        markMobileSignupEligible();
+      }
       setLoading(false);
       router.replace("/projects");
       return;
@@ -84,6 +88,9 @@ export function RegisterForm() {
     setLoading(false);
 
     if (signInData.session) {
+      if (isLikelyMobileDevice()) {
+        markMobileSignupEligible();
+      }
       router.replace("/projects");
       return;
     }

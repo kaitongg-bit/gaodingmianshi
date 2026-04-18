@@ -223,6 +223,10 @@ export function WorkspaceClient() {
   const [chatPasteNotice, setChatPasteNotice] = useState<string | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const [selPopup, setSelPopup] = useState<{ text: string; x: number; y: number } | null>(null);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [mobilePane, setMobilePane] = useState<"questions" | "chat" | "script">(
+    "questions",
+  );
 
   /** 演示项目：若库里仍是另一语言的整套 demo，与当前 locale 对齐并 PATCH 持久化 */
   const syncDemoResumeJdIfNeeded = useCallback(
@@ -629,6 +633,21 @@ export function WorkspaceClient() {
     document.addEventListener("mousedown", onMouseDown);
     return () => document.removeEventListener("mousedown", onMouseDown);
   }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px)");
+    const update = () => setIsMobileViewport(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobileViewport) return;
+    if (mobilePane === "chat" && !selectedId) {
+      setMobilePane("questions");
+    }
+  }, [isMobileViewport, mobilePane, selectedId]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -1326,7 +1345,7 @@ export function WorkspaceClient() {
         removeRoundBusy={removeRoundBusy}
       />
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden pt-14 md:pt-16">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden pt-20 md:pt-16">
         {error && (
           <div className="shrink-0 border-b border-amber-200/50 bg-amber-50 px-4 py-2 text-center text-xs text-amber-950 md:px-8">
             {error}
@@ -1339,9 +1358,13 @@ export function WorkspaceClient() {
 
         <main
           id="main"
-          className="mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 flex-col gap-0 overflow-hidden px-4 pb-3 md:h-full md:min-h-0 md:flex-row md:px-8 md:pb-4"
+          className={`mx-auto flex min-h-0 w-full max-w-[1600px] flex-1 flex-col gap-0 overflow-hidden px-4 md:h-full md:min-h-0 md:flex-row md:px-8 md:pb-4 ${
+            isMobileViewport ? "pb-20" : "pb-4"
+          }`}
         >
-          <section className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden border-b border-[var(--outline-variant)]/10 bg-[var(--surface-container-low)] p-4 md:w-[min(22rem,100%)] md:max-w-sm md:flex-none md:shrink-0 md:border-b-0 md:border-r md:p-6">
+          <section
+            className={`${isMobileViewport && mobilePane !== "questions" ? "hidden lg:flex" : "flex"} min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden border-b border-[var(--outline-variant)]/10 bg-[var(--surface-container-low)] p-4 md:w-[min(22rem,100%)] md:max-w-sm md:flex-none md:shrink-0 md:border-b-0 md:border-r md:p-6`}
+          >
             <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
               <h2 className="font-headline text-xl font-medium text-[var(--on-surface)] md:text-2xl">
                 {t("questionList")}
@@ -1436,6 +1459,7 @@ export function WorkspaceClient() {
                               type="button"
                               onClick={() => {
                                 setSelectedId(q.id);
+                                if (isMobileViewport) setMobilePane("chat");
                               }}
                               className={`flex w-full gap-3 p-3 pb-2 text-left transition hover:bg-[var(--surface-container-high)]/60 ${
                                 selectedId === q.id ? "" : ""
@@ -1540,7 +1564,9 @@ export function WorkspaceClient() {
             </div>
           </section>
 
-          <section className="flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden border-[var(--outline-variant)]/10 bg-[var(--surface)] md:mt-0 md:flex-[1_1_0] md:border-x">
+          <section
+            className={`${isMobileViewport && mobilePane !== "chat" ? "hidden lg:flex" : "flex"} min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden border-[var(--outline-variant)]/10 bg-[var(--surface)] md:mt-0 md:flex-[1_1_0] md:border-x`}
+          >
             <div className="flex h-full min-h-0 flex-1 flex-col px-3 py-4 md:px-4">
               <header className="mb-3 shrink-0">
                 <h2 className="font-headline text-xl font-medium text-[var(--on-surface)] md:text-2xl">
@@ -1677,7 +1703,7 @@ export function WorkspaceClient() {
           </section>
 
           <aside
-            className={`flex min-h-0 flex-col overflow-hidden bg-[var(--surface-container-low)] transition-[flex-basis] duration-200 md:mt-0 ${
+            className={`${isMobileViewport && mobilePane !== "script" ? "hidden lg:flex" : "flex"} min-h-0 flex-col overflow-hidden bg-[var(--surface-container-low)] transition-[flex-basis] duration-200 md:mt-0 ${
               transcriptPanelOpen
                 ? "min-w-0 flex-1 p-4 md:flex-[1.08_1_0] md:p-6"
                 : "shrink-0 border-t border-[var(--outline-variant)]/10 p-2 md:flex-none md:border-t-0 md:p-6 lg:w-[2.75rem] lg:min-w-[2.75rem] lg:px-1"
@@ -1784,6 +1810,39 @@ export function WorkspaceClient() {
             )}
           </aside>
         </main>
+
+        {isMobileViewport ? (
+          <nav
+            aria-label="workspace panes"
+            className="fixed inset-x-0 bottom-0 z-[90] border-t border-[var(--outline-variant)]/20 bg-[var(--surface)]/95 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-1 backdrop-blur"
+          >
+            <div className="flex items-center gap-1">
+              {[
+                { id: "questions", label: t("mobileTabQuestions"), icon: "list_alt" },
+                { id: "chat", label: t("mobileTabChat"), icon: "chat_bubble" },
+                { id: "script", label: t("mobileTabScript"), icon: "description" },
+              ].map((tab) => {
+                const active = mobilePane === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setMobilePane(tab.id as "questions" | "chat" | "script")}
+                    className={`flex flex-1 flex-col items-center justify-center gap-0.5 rounded-lg px-2 py-1.5 text-[11px] font-medium transition ${
+                      active
+                        ? "text-[var(--primary)]"
+                        : "text-[var(--on-surface-variant)]"
+                    }`}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    <MaterialIcon name={tab.icon} className={`!text-xl ${active ? "" : "opacity-80"}`} />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
+        ) : null}
       </div>
     </div>
 

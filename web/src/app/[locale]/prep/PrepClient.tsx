@@ -666,7 +666,7 @@ export function PrepClient() {
   }
 
   return (
-    <div className="flex h-dvh min-h-0 flex-col overflow-hidden bg-[var(--background)]">
+    <div className="flex min-h-dvh flex-col bg-[var(--background)] lg:h-dvh lg:min-h-0 lg:overflow-hidden">
       <DraftNav
         variant="app"
         activeStep="prep"
@@ -680,7 +680,7 @@ export function PrepClient() {
       />
       <main
         id="main"
-        className="mx-auto flex min-h-0 w-full max-w-screen-2xl flex-1 flex-col overflow-hidden px-4 pb-4 pt-24 md:px-8"
+        className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col px-4 pb-6 pt-20 md:px-8 md:pt-24 lg:min-h-0 lg:overflow-hidden lg:pb-4"
       >
         {loadError ? (
           <div className="mb-3 shrink-0 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-950">
@@ -691,7 +691,7 @@ export function PrepClient() {
           <div className="mb-3 shrink-0 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-950">{error}</div>
         ) : null}
 
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-6 overflow-hidden md:grid-cols-12 md:gap-8">
+        <div className="grid flex-1 grid-cols-1 gap-6 md:grid-cols-12 md:gap-8 lg:min-h-0 lg:overflow-hidden">
           {loadingPipeline ? (
             <div className="col-span-1 shrink-0 md:col-span-12">
               <PrepPipelineLoadingPanel
@@ -712,7 +712,7 @@ export function PrepClient() {
               />
             </div>
           ) : null}
-          <section className="flex min-h-0 flex-col overflow-hidden md:col-span-5">
+          <section className="flex flex-col md:col-span-5 lg:min-h-0 lg:overflow-hidden">
             <div className="flex shrink-0 items-end justify-between border-b border-[var(--outline-variant)]/30 pb-3">
               <h1 className="font-headline text-2xl font-medium tracking-tight md:text-3xl">
                 {t("stageAssets")}
@@ -742,12 +742,12 @@ export function PrepClient() {
               </div>
             </div>
 
-            <div className="mt-4 flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
+            <div className="mt-4 flex flex-col gap-2 lg:min-h-0 lg:flex-1 lg:overflow-hidden">
               <div className="flex shrink-0 items-center gap-2">
                 <MaterialIcon name="article" className="text-[var(--primary)]" />
                 <h2 className="font-headline text-lg md:text-xl">{t("jd")}</h2>
               </div>
-              <div className="flex min-h-0 flex-1 flex-col rounded-xl bg-[var(--surface-container-low)] p-4">
+              <div className="flex flex-col rounded-xl bg-[var(--surface-container-low)] p-4 lg:min-h-0 lg:flex-1">
                 <label className="mb-2 shrink-0 text-[10px] font-medium uppercase tracking-widest text-[var(--on-surface-variant)] md:text-xs">
                   {t("jdLabel")}
                 </label>
@@ -757,7 +757,7 @@ export function PrepClient() {
                   placeholder={t("jdPlaceholder")}
                   disabled={loadingPipeline}
                   aria-busy={loadingPipeline}
-                  className="min-h-0 w-full flex-1 resize-none rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] p-3 text-sm leading-relaxed text-[var(--on-surface)] outline-none focus:ring-1 focus:ring-[var(--primary)]/30 disabled:cursor-not-allowed disabled:opacity-55"
+                  className="h-48 w-full resize-none rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] p-3 text-sm leading-relaxed text-[var(--on-surface)] outline-none focus:ring-1 focus:ring-[var(--primary)]/30 disabled:cursor-not-allowed disabled:opacity-55 lg:h-auto lg:min-h-0 lg:flex-1"
                 />
               </div>
             </div>
@@ -769,8 +769,8 @@ export function PrepClient() {
             </div>
           </section>
 
-          <section className="flex min-h-0 flex-col overflow-hidden md:col-span-7">
-            <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain pr-1 scrollbar-thin">
+          <section className="flex flex-col md:col-span-7 lg:min-h-0 lg:overflow-hidden">
+            <div className="flex-1 space-y-6 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:pr-1 lg:scrollbar-thin">
               <div className="relative flex flex-col items-stretch justify-between gap-6 overflow-hidden rounded-xl bg-[var(--primary)] p-6 text-[var(--on-primary)] shadow-[var(--shadow-card)] md:flex-row md:items-center md:p-8">
                 <div className="relative z-10 max-w-md">
                   <h2 className="font-headline text-xl md:text-3xl">{t("strategicTitle")}</h2>

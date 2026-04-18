@@ -9,6 +9,13 @@ import {
   type AcquisitionSurveyChannel,
 } from "@/lib/acquisition-survey-bonus";
 import { trackEvent } from "@/lib/analytics";
+import {
+  hasSeenMobileDesktopNotice,
+  isLikelyMobileDevice,
+  isNarrowMobileViewport,
+  isMobileSignupEligible,
+  markMobileDesktopNoticeSeen,
+} from "@/lib/client/mobile-onboarding";
 
 const SNOOZE_KEY = "acquisition_survey_snooze";
 
@@ -29,6 +36,7 @@ export function AcquisitionSurveyModal() {
   const t = useTranslations("AcquisitionSurvey");
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
+  const [step, setStep] = useState<"survey" | "desktop_notice">("survey");
   const [channel, setChannel] = useState<AcquisitionSurveyChannel | null>(null);
   const [otherText, setOtherText] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -44,12 +52,35 @@ export function AcquisitionSurveyModal() {
     } catch {
       /* ignore */
     }
+    trackEvent("acquisition_survey_snooze");
     setOpen(false);
   }, []);
 
   const applyCompleted = useCallback(() => {
     clearSurveySnooze();
+    setStep("survey");
     setOpen(false);
+  }, []);
+
+  const maybeOpenDesktopNotice = useCallback(
+    (opts?: { bypassEligibility?: boolean }): boolean => {
+    if (!isLikelyMobileDevice()) return false;
+    if (!isNarrowMobileViewport()) return false;
+    if (!opts?.bypassEligibility && !isMobileSignupEligible()) return false;
+    if (hasSeenMobileDesktopNotice()) return false;
+    setStep("desktop_notice");
+    setOpen(true);
+    trackEvent("mobile_desktop_notice_view");
+    return true;
+    },
+    [],
+  );
+
+  const closeDesktopNotice = useCallback(() => {
+    markMobileDesktopNoticeSeen();
+    setStep("survey");
+    setOpen(false);
+    trackEvent("mobile_desktop_notice_ack");
   }, []);
 
   useEffect(() => {
@@ -62,6 +93,7 @@ export function AcquisitionSurveyModal() {
       const j = (await r.json()) as { completed?: boolean };
 
       if (j.completed) {
+        if (maybeOpenDesktopNotice()) return;
         applyCompleted();
         return;
       }
@@ -74,22 +106,28 @@ export function AcquisitionSurveyModal() {
 
       if (cancelled) return;
       setOpen(true);
+      setStep("survey");
       trackEvent("acquisition_survey_view");
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [mounted, applyCompleted]);
+  }, [mounted, applyCompleted, maybeOpenDesktopNotice]);
 
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") snooze();
+      if (e.key !== "Escape") return;
+      if (step === "desktop_notice") {
+        closeDesktopNotice();
+      } else {
+        snooze();
+      }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, snooze]);
+  }, [open, snooze, step, closeDesktopNotice]);
 
   useEffect(() => {
     if (!open) return;
@@ -138,14 +176,18 @@ export function AcquisitionSurveyModal() {
         trackEvent("acquisition_survey_submit", { channel });
         clearSurveySnooze();
         dispatchMeRefresh();
-        setOpen(false);
+        if (!maybeOpenDesktopNotice({ bypassEligibility: true })) {
+          setOpen(false);
+        }
         return;
       }
 
       if (r.status === 409) {
         clearSurveySnooze();
         dispatchMeRefresh();
-        setOpen(false);
+        if (!maybeOpenDesktopNotice({ bypassEligibility: true })) {
+          setOpen(false);
+        }
         return;
       }
 
@@ -172,85 +214,110 @@ export function AcquisitionSurveyModal() {
     >
       <div
         className="flex min-h-full flex-col items-center justify-center bg-black/45 p-4 py-10"
-        onClick={snooze}
+        onClick={step === "desktop_notice" ? closeDesktopNotice : snooze}
       >
         <div
           className="w-full max-w-md rounded-2xl border border-[var(--outline-variant)]/20 bg-[var(--surface)] p-6 shadow-xl"
           onClick={(e) => e.stopPropagation()}
         >
-          <h2
-            id="acquisition-survey-title"
-            className="font-headline text-lg font-semibold text-[var(--on-surface)]"
-          >
-            {t("title")}
-          </h2>
-          <p className="mt-2 text-sm leading-relaxed text-[var(--primary)]">
-            {t("bonusHint", { n: ACQUISITION_SURVEY_BONUS_CREDITS })}
-          </p>
-
-          <div className="mt-5 flex flex-col gap-2">
-            {ACQUISITION_SURVEY_CHANNELS.map((ch) => (
-              <label
-                key={ch}
-                className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition ${
-                  channel === ch
-                    ? "border-[var(--primary)]/50 bg-[var(--primary)]/8"
-                    : "border-[var(--outline-variant)]/25 hover:border-[var(--outline-variant)]/45"
-                }`}
+          {step === "survey" ? (
+            <>
+              <h2
+                id="acquisition-survey-title"
+                className="font-headline text-lg font-semibold text-[var(--on-surface)]"
               >
-                <input
-                  type="radio"
-                  name="acquisition-channel"
-                  className="h-4 w-4 shrink-0 accent-[var(--primary)]"
-                  checked={channel === ch}
-                  onChange={() => {
-                    setChannel(ch);
+                {t("title")}
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--primary)]">
+                {t("bonusHint", { n: ACQUISITION_SURVEY_BONUS_CREDITS })}
+              </p>
+
+              <div className="mt-5 flex flex-col gap-2">
+                {ACQUISITION_SURVEY_CHANNELS.map((ch) => (
+                  <label
+                    key={ch}
+                    className={`flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2.5 text-sm transition ${
+                      channel === ch
+                        ? "border-[var(--primary)]/50 bg-[var(--primary)]/8"
+                        : "border-[var(--outline-variant)]/25 hover:border-[var(--outline-variant)]/45"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="acquisition-channel"
+                      className="h-4 w-4 shrink-0 accent-[var(--primary)]"
+                      checked={channel === ch}
+                      onChange={() => {
+                        setChannel(ch);
+                        setError(null);
+                      }}
+                    />
+                    <span className="text-[var(--on-surface)]">{t(`channel_${ch}`)}</span>
+                  </label>
+                ))}
+              </div>
+
+              {channel === "other" ? (
+                <textarea
+                  value={otherText}
+                  onChange={(e) => {
+                    setOtherText(e.target.value);
                     setError(null);
                   }}
+                  rows={3}
+                  maxLength={500}
+                  placeholder={t("otherPlaceholder")}
+                  className="mt-3 w-full resize-none rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] px-3 py-2.5 text-sm leading-relaxed text-[var(--on-surface)] outline-none focus:ring-1 focus:ring-[var(--primary)]/25"
                 />
-                <span className="text-[var(--on-surface)]">{t(`channel_${ch}`)}</span>
-              </label>
-            ))}
-          </div>
+              ) : null}
 
-          {channel === "other" ? (
-            <textarea
-              value={otherText}
-              onChange={(e) => {
-                setOtherText(e.target.value);
-                setError(null);
-              }}
-              rows={3}
-              maxLength={500}
-              placeholder={t("otherPlaceholder")}
-              className="mt-3 w-full resize-none rounded-xl border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] px-3 py-2.5 text-sm leading-relaxed text-[var(--on-surface)] outline-none focus:ring-1 focus:ring-[var(--primary)]/25"
-            />
-          ) : null}
+              {error ? (
+                <p className="mt-3 text-sm text-[var(--error)]" role="alert">
+                  {error}
+                </p>
+              ) : null}
 
-          {error ? (
-            <p className="mt-3 text-sm text-[var(--error)]" role="alert">
-              {error}
-            </p>
-          ) : null}
-
-          <div className="mt-6 flex flex-col gap-2 sm:flex-row-reverse sm:justify-end">
-            <button
-              type="button"
-              disabled={submitting || !channel}
-              onClick={() => void onSubmit()}
-              className="w-full rounded-full bg-[var(--primary)] py-2.5 text-sm font-medium text-[var(--on-primary)] transition hover:opacity-95 disabled:opacity-40 sm:w-auto sm:min-w-[7.5rem]"
-            >
-              {submitting ? t("submitting") : t("submit")}
-            </button>
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={snooze}
-              className="w-full rounded-full border border-[var(--outline-variant)]/35 py-2.5 text-sm font-medium text-[var(--on-surface-variant)] transition hover:bg-[var(--surface-container-high)] disabled:opacity-40 sm:w-auto sm:min-w-[7.5rem]"
-            >
-              {t("later")}
-            </button>
-          </div>
+              <div className="mt-6 flex flex-col gap-2 sm:flex-row-reverse sm:justify-end">
+                <button
+                  type="button"
+                  disabled={submitting || !channel}
+                  onClick={() => void onSubmit()}
+                  className="w-full rounded-full bg-[var(--primary)] py-2.5 text-sm font-medium text-[var(--on-primary)] transition hover:opacity-95 disabled:opacity-40 sm:w-auto sm:min-w-[7.5rem]"
+                >
+                  {submitting ? t("submitting") : t("submit")}
+                </button>
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={snooze}
+                  className="w-full rounded-full border border-[var(--outline-variant)]/35 py-2.5 text-sm font-medium text-[var(--on-surface-variant)] transition hover:bg-[var(--surface-container-high)] disabled:opacity-40 sm:w-auto sm:min-w-[7.5rem]"
+                >
+                  {t("later")}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <h2 className="font-headline text-lg font-semibold text-[var(--on-surface)]">
+                {t("desktopNoticeTitle")}
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-[var(--on-surface-variant)]">
+                {t("desktopNoticeBody")}
+              </p>
+              <p className="mt-3 rounded-xl bg-[var(--surface-container-low)] px-3 py-2 text-sm text-[var(--on-surface)]">
+                {t("desktopNoticeCredits")}
+              </p>
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={closeDesktopNotice}
+                  className="w-full rounded-full bg-[var(--primary)] py-2.5 text-sm font-medium text-[var(--on-primary)] transition hover:opacity-95 sm:w-auto sm:min-w-[8rem]"
+                >
+                  {t("desktopNoticeConfirm")}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>,
