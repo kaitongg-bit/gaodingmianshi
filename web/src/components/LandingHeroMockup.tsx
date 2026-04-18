@@ -369,8 +369,8 @@ function PrepWorkspaceMock({
   );
 
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-hidden px-2 py-2 sm:gap-5 sm:px-3 sm:py-3 md:grid-cols-12 md:gap-6 md:px-4">
-      <section className="flex min-h-0 max-h-[48%] flex-col overflow-hidden md:col-span-5 md:max-h-none">
+    <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 overflow-hidden px-2 py-2 sm:gap-5 sm:px-3 sm:py-3 md:grid-cols-12 md:gap-6 md:px-4">
+      <section className="flex shrink-0 flex-col overflow-hidden md:col-span-5 md:min-h-0 md:flex-1 md:shrink">
         <div className="flex shrink-0 items-end justify-between border-b border-[var(--outline-variant)]/30 pb-2">
           <h2 className="font-headline text-sm font-medium tracking-tight text-[var(--on-surface)] md:text-base">
             {t("heroPrepStageAssets")}
@@ -407,20 +407,20 @@ function PrepWorkspaceMock({
           </div>
         </div>
 
-        <div className="mt-2 flex min-h-[5rem] flex-1 flex-col gap-2 overflow-hidden md:min-h-0">
+        <div className="mt-2 flex flex-col gap-2 overflow-hidden md:min-h-0 md:flex-1">
           <div className="flex shrink-0 items-center gap-1.5">
             <MaterialIcon name="article" className="!text-base shrink-0 text-[var(--primary)]" />
             <h3 className="font-headline text-sm text-[var(--on-surface)] md:text-base">{t("heroPrepJd")}</h3>
           </div>
           <div
-            className={`flex min-h-0 flex-1 flex-col rounded-xl bg-[var(--surface-container-low)] p-2.5 transition-[box-shadow] duration-300 md:p-3 ${
+            className={`flex flex-col rounded-xl bg-[var(--surface-container-low)] p-2.5 transition-[box-shadow] duration-300 md:min-h-0 md:flex-1 md:p-3 ${
               jdGlow ? "ring-1 ring-[color-mix(in_srgb,var(--primary)_22%,transparent)]" : ""
             }`}
           >
             <p className="mb-1.5 shrink-0 text-[8px] font-medium uppercase tracking-widest text-[var(--on-surface-variant)] md:text-[9px]">
               {t("heroPrepJdLabel")}
             </p>
-            <div className="min-h-0 flex-1 rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] p-2">
+            <div className="h-[3.75rem] rounded-lg border border-[var(--outline-variant)]/30 bg-[var(--surface-container-lowest)] p-2 md:h-auto md:min-h-0 md:flex-1">
               <div className="flex flex-col gap-1">
                 {[100, 96, 100, 88, 92, 84, 100, 70].map((pct, i) => (
                   <div

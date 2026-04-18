@@ -771,32 +771,54 @@ export function PrepClient() {
 
           <section className="flex flex-col md:col-span-7 lg:min-h-0 lg:overflow-hidden">
             <div className="flex-1 space-y-6 lg:min-h-0 lg:overflow-y-auto lg:overscroll-contain lg:pr-1 lg:scrollbar-thin">
-              <div className="relative flex flex-col items-stretch justify-between gap-6 overflow-hidden rounded-xl bg-[var(--primary)] p-6 text-[var(--on-primary)] shadow-[var(--shadow-card)] md:flex-row md:items-center md:p-8">
-                <div className="relative z-10 max-w-md">
-                  <h2 className="font-headline text-xl md:text-3xl">{t("strategicTitle")}</h2>
-                  <p className="mt-3 text-sm leading-relaxed text-[var(--on-primary)]/90">
+              <div className="relative overflow-hidden rounded-xl bg-[var(--primary)] p-5 text-[var(--on-primary)] shadow-[var(--shadow-card)] md:p-8">
+                <div className="md:hidden">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full border-4 border-[var(--primary-container)]/40">
+                      <span className="font-headline text-2xl font-bold">{analysis ? score : "—"}</span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--on-primary)]/70">
+                        {t("matchScore")}
+                      </p>
+                      <h2 className="font-headline mt-0.5 text-lg leading-tight">{t("strategicTitle")}</h2>
+                    </div>
+                  </div>
+                  <p className="mt-4 text-sm leading-relaxed text-[var(--on-primary)]/90">
                     {analysis
                       ? t("strategicBody", { score: String(score) })
                       : locale === "zh"
                         ? "运行分析后，将在此展示与岗位的匹配摘要。"
                         : "Run analysis to see how your materials align with the role."}
                   </p>
-                  <p className="mt-2 text-xs opacity-80">{t("disclaimer")}</p>
+                  <p className="mt-2 text-[11px] leading-snug opacity-80">{t("disclaimer")}</p>
                 </div>
-                <div className="relative z-10 flex flex-col items-center">
-                  <div className="flex h-24 w-24 items-center justify-center rounded-full border-4 border-[var(--primary-container)]/40 md:h-28 md:w-28">
-                    <span className="font-headline text-3xl font-bold md:text-4xl">
-                      {analysis ? score : "—"}
+
+                <div className="hidden items-center justify-between gap-6 md:flex">
+                  <div className="max-w-md">
+                    <h2 className="font-headline text-3xl">{t("strategicTitle")}</h2>
+                    <p className="mt-3 text-sm leading-relaxed text-[var(--on-primary)]/90">
+                      {analysis
+                        ? t("strategicBody", { score: String(score) })
+                        : locale === "zh"
+                          ? "运行分析后，将在此展示与岗位的匹配摘要。"
+                          : "Run analysis to see how your materials align with the role."}
+                    </p>
+                    <p className="mt-2 text-xs opacity-80">{t("disclaimer")}</p>
+                  </div>
+                  <div className="flex flex-col items-center">
+                    <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-[var(--primary-container)]/40">
+                      <span className="font-headline text-4xl font-bold">{analysis ? score : "—"}</span>
+                    </div>
+                    <span className="mt-2 text-[10px] font-medium uppercase tracking-widest text-[var(--on-primary)]/70">
+                      {t("matchScore")}
                     </span>
                   </div>
-                  <span className="mt-2 text-[10px] font-medium uppercase tracking-widest text-[var(--on-primary)]/70">
-                    {t("matchScore")}
-                  </span>
                 </div>
               </div>
 
-              <div className="rounded-xl bg-[var(--surface-container)] p-6 md:p-8">
-                <h2 className="font-headline mb-5 text-xl md:text-2xl">{t("distributionTitle")}</h2>
+              <div className="rounded-xl bg-[var(--surface-container)] p-5 md:p-8">
+                <h2 className="font-headline mb-4 text-lg md:mb-5 md:text-2xl">{t("distributionTitle")}</h2>
                 <div className="space-y-5">
                   {(dims.length
                     ? dims.slice(0, 4)
